@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+joblib
+shap
+numpy
+scikit-learn
+pandas
+PyJWT
+passlib
+websockets
