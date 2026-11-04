@@ -51,7 +51,7 @@
     </div>
 
     <p class="text-xs text-slate-300 leading-relaxed mb-6 font-medium">
-      Trang web này đã bị hệ thống <strong>PhishArmor AI</strong> chủ động ngăn chặn để bảo vệ tài khoản ngân hàng và mật khẩu của bạn khỏi nguy cơ bị đánh cắp.
+      Trang web này đã bị tiện ích <strong>PhishArmor AI</strong> chủ động ngăn chặn để bảo vệ tài khoản ngân hàng và mật khẩu của bạn khỏi nguy cơ bị đánh cắp.
     </p>
 
     <!-- XAI Gemini Breakdown -->
@@ -61,7 +61,7 @@
           <span class="text-indigo-400">✨</span>
           <span class="text-[11px] font-extrabold uppercase text-slate-200">Phân Tích AI Gemini</span>
         </div>
-        <span class="text-[10px] font-black bg-rose-600 text-white px-2 py-0.5 rounded">Risk Score: 12/100</span>
+        <span class="text-[10px] font-black bg-rose-600 text-white px-2 py-0.5 rounded" id="risk-badge">Risk Score: 12/100</span>
       </div>
 
       <div class="text-xs space-y-2">
@@ -69,7 +69,7 @@
           <span class="text-rose-400 text-sm">🚨</span>
           <div>
             <strong class="text-slate-100 font-bold block">Tên miền nhái thương hiệu (Typosquatting)</strong>
-            <p class="text-[11px] text-slate-400">Cố tình giả mạo ngân hàng hợp pháp với các đuôi tên miền rủi ro cao.</p>
+            <p class="text-[11px] text-slate-400">Cố tình giả mạo ngân hàng / tổ chức hợp pháp với các đuôi tên miền rủi ro cao.</p>
           </div>
         </div>
         <div class="flex items-start gap-2.5">
@@ -84,16 +84,31 @@
 
     <!-- Action Buttons -->
     <div class="space-y-3">
-      <button onclick="window.history.back() || (window.location.href='https://google.com')" class="w-full py-3.5 bg-white text-slate-900 hover:bg-slate-100 rounded-xl font-bold text-xs shadow-xl transition-all">
+      <button onclick="window.location.href='https://www.google.com'" class="w-full py-3.5 bg-white text-slate-900 hover:bg-slate-100 rounded-xl font-bold text-xs shadow-xl transition-all cursor-pointer">
         🛡️ Quay Lại Trang An Toàn (Khuyên Dùng)
       </button>
       
-      <button onclick="alert('Đã gửi báo cáo tên miền nhầm lẫn tới Admin PhishArmor!')" class="text-xs text-slate-400 hover:text-white underline transition-colors">
+      <button onclick="alert('Đã gửi báo cáo tên miền nhầm lẫn tới Trung tâm giám sát SOC PhishArmor!')" class="text-xs text-slate-400 hover:text-white underline transition-colors cursor-pointer">
         Báo cáo nhầm lẫn (False Positive)
       </button>
     </div>
 
   </div>
+
+  <script>
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const url = params.get('url');
+      const score = params.get('score');
+      if (url) {
+        document.getElementById('blocked-url').innerText = url;
+        document.title = "Đã chặn nguy hiểm: " + url + " - PhishArmor AI";
+      }
+      if (score) {
+        document.getElementById('risk-badge').innerText = "Risk: " + (100 - parseInt(score)) + "/100";
+      }
+    } catch(e) {}
+  </script>
 
 </body>
 </html>

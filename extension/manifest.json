@@ -1,17 +1,25 @@
 {
   "manifest_version": 3,
-  "name": "PhishArmor AI - Phát hiện & Phòng vệ Website Lừa Đảo",
-  "version": "1.2.0",
-  "description": "Tiện ích phát hiện và cảnh báo website lừa đảo thời gian thực qua PhoBERT & XGBoost",
+  "name": "PhishArmor AI - Bảo Vệ & Chặn Website Lừa Đảo",
+  "version": "1.3.0",
+  "description": "Tiện ích tự động phát hiện và chặn đứng website lừa đảo trực tuyến theo thời gian thực (PhoBERT & XGBoost).",
   "permissions": [
-    "activeTab",
-    "storage"
+    "webNavigation",
+    "tabs",
+    "storage",
+    "notifications",
+    "activeTab"
   ],
   "host_permissions": [
-    "http://127.0.0.1:8000/*"
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8000/*",
+    "<all_urls>"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "PhishArmor AI"
+    "default_title": "PhishArmor AI - Lá Chắn Phòng Vệ Phishing"
   }
 }
