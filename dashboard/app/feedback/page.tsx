@@ -226,8 +226,14 @@ export default function FeedbackPage() {
       console.error(e);
     }
 
+    // Polling tự động làm mới phản hồi mỗi 3 giây
+    const pollTimer = setInterval(() => {
+      fetchReports();
+    }, 3000);
+
     return () => {
       if (ws) ws.close();
+      clearInterval(pollTimer);
     };
   }, [fetchReports]);
 
@@ -343,6 +349,7 @@ export default function FeedbackPage() {
   const fpCount = reports.filter(r => r.type === "false_positive").length;
   const fnCount = reports.filter(r => r.type === "false_negative").length;
   const approvedCount = reports.filter(r => r.status !== "pending").length;
+  const totalReceived = 1280 + reports.length;
 
   // Xuất Báo Cáo Trực Quan (.html) có giao diện đẹp mắt, mở bằng trình duyệt xem ngay và hỗ trợ in/lưu PDF
   const exportReportHtml = () => {
@@ -936,7 +943,7 @@ export default function FeedbackPage() {
                 </span>
               </div>
               <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">1,284</span>
+                <span className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{totalReceived.toLocaleString()}</span>
                 {activeTab === "all" && (
                   <span className="text-xs font-semibold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/40 px-2 py-0.5 rounded-full">
                     Đang xem

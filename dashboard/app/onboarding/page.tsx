@@ -203,9 +203,7 @@ export default function OnboardingPage() {
     }, 500);
   };
 
-  const handleFinish = async (targetPath: string) => {
-    setIsLoading(true);
-
+  const handleFinish = (targetPath: string) => {
     // Save profile and configuration in localStorage for instant synchronization across pages
     try {
       localStorage.setItem("phisharmor_user_profile", userProfile);
@@ -224,29 +222,23 @@ export default function OnboardingPage() {
       // ignore
     }
 
-    // Push updated settings to Backend API
-    try {
-      await fetch("http://localhost:8000/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          protectionMode: strictBlocking ? "block" : "warn",
-          punycodeDefense,
-          inspectShortenedUrls: shortUrlInspection,
-          blockRiskyTLD,
-          sslStrictInspection,
-          sendTelemetry: anonymousTelemetry,
-          trustScore: trustThreshold,
-          activeProfile: userProfile
-        })
-      });
-    } catch {
+    // Push updated settings to Backend API asynchronously (non-blocking)
+    fetch("http://localhost:8000/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        protectionMode: strictBlocking ? "block" : "warn",
+        punycodeDefense,
+        inspectShortenedUrls: shortUrlInspection,
+        blockRiskyTLD,
+        sslStrictInspection,
+        sendTelemetry: anonymousTelemetry,
+        trustScore: trustThreshold,
+        activeProfile: userProfile
+      })
+    }).catch(() => {
       // ignore network errors if running standalone
-    }
-
-    setTimeout(() => {
-      window.location.href = targetPath;
-    }, 600);
+    });
   };
 
   const stepsList = [
@@ -868,69 +860,63 @@ export default function OnboardingPage() {
                 <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
                   {userProfile === "soc" ? (
                     <>
-                      <button
-                        type="button"
+                      <Link
+                        href="/overview"
                         onClick={() => handleFinish("/overview")}
-                        disabled={isLoading}
-                        className="flex-1 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-sky-500/20 transition-all flex items-center justify-center gap-2"
+                        className="flex-1 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-sky-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                       >
                         <span>Mở Trung Tâm Giám Sát SOC (/overview)</span>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                         </svg>
-                      </button>
-                      <button
-                        type="button"
+                      </Link>
+                      <Link
+                        href="/training"
                         onClick={() => handleFinish("/training")}
-                        disabled={isLoading}
-                        className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                        className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                       >
                         <span>Quy Trình Huấn Luyện AI (/training)</span>
-                      </button>
+                      </Link>
                     </>
                   ) : userProfile === "enterprise" ? (
                     <>
-                      <button
-                        type="button"
+                      <Link
+                        href="/overview"
                         onClick={() => handleFinish("/overview")}
-                        disabled={isLoading}
-                        className="flex-1 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-sky-500/20 transition-all flex items-center justify-center gap-2"
+                        className="flex-1 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-sky-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                       >
                         <span>Vào Dashboard Doanh Nghiệp</span>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                         </svg>
-                      </button>
-                      <button
-                        type="button"
+                      </Link>
+                      <Link
+                        href="/settings"
                         onClick={() => handleFinish("/settings")}
-                        disabled={isLoading}
-                        className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                        className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                       >
                         <span>Tùy Chỉnh Chính Sách Tổ Chức (/settings)</span>
-                      </button>
+                      </Link>
                     </>
                   ) : (
                     <>
-                      <button
-                        type="button"
+                      <Link
+                        href="/scan"
                         onClick={() => handleFinish("/scan")}
-                        disabled={isLoading}
-                        className="flex-1 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-sky-500/20 transition-all flex items-center justify-center gap-2"
+                        className="flex-1 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-sky-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                       >
                         <span>Bắt Đầu Kiểm Tra & Quét URL (/scan)</span>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                         </svg>
-                      </button>
-                      <button
-                        type="button"
+                      </Link>
+                      <Link
+                        href="/overview"
                         onClick={() => handleFinish("/overview")}
-                        disabled={isLoading}
-                        className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                        className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                       >
                         <span>Xem Bảng Tổng Quan (/overview)</span>
-                      </button>
+                      </Link>
                     </>
                   )}
                 </div>

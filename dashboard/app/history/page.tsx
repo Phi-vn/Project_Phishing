@@ -11,6 +11,7 @@ export default function HistoryPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [statsData, setStatsData] = useState<{ total_scans: number; total_threats: number; total_safe: number; suspicious_count: number } | null>(null);
   const pageSize = 10;
 
   // Toast state
@@ -110,7 +111,16 @@ export default function HistoryPage() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch('http://localhost:8000/history?limit=300');
+      const [res, statsRes] = await Promise.all([
+        fetch('http://localhost:8000/history?limit=1000'),
+        fetch('http://localhost:8000/stats').catch(() => null)
+      ]);
+      if (statsRes && statsRes.ok) {
+        try {
+          const s = await statsRes.json();
+          setStatsData(s);
+        } catch(e) {}
+      }
       const data = await res.json();
       
       const rawLogs = Array.isArray(data) && data.length > 0 ? data : [];
@@ -119,10 +129,27 @@ export default function HistoryPage() {
         return;
       }
 
+      const now = Date.now();
       const formattedLogs = rawLogs.map((item: any, idx: number) => {
-        const date = new Date(item.timestamp || Date.now());
-        const timeStr = date.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) + ' • ' + date.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit'});
+        let ts = item.timestamp ? String(item.timestamp).trim().replace(" ", "T") : "";
+        if (ts && !ts.endsWith("Z") && !ts.includes("+")) {
+          ts += "Z";
+        }
+        const date = ts ? new Date(ts) : new Date();
+        const validDate = isNaN(date.getTime()) ? new Date() : date;
+        const timeStr = validDate.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) + ' • ' + validDate.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit'});
         
+        const diffMs = Math.max(0, now - validDate.getTime());
+        const diffMinutes = Math.floor(diffMs / 60000);
+        let relativeTime = "Vừa xong";
+        if (diffMinutes >= 1440) {
+          relativeTime = `${Math.floor(diffMinutes / 1440)} ngày trước`;
+        } else if (diffMinutes >= 60) {
+          relativeTime = `${Math.floor(diffMinutes / 60)} giờ trước`;
+        } else if (diffMinutes > 0) {
+          relativeTime = `${diffMinutes} phút trước`;
+        }
+
         let level = "An toàn";
         if (item.label === "Lừa đảo" || item.is_phishing) level = "Độc hại";
         else if (item.confidence > 50 && item.confidence < 80) level = "Đáng ngờ";
@@ -131,13 +158,13 @@ export default function HistoryPage() {
           id: item.id || idx + 1,
           domain: item.domain || "unknown.com",
           url: item.url || `https://${item.domain}`,
-          ip: item.domain.startsWith("192") ? item.domain : "103.142.24." + (idx * 5 + 10),
+          ip: item.domain.startsWith("192") ? item.domain : "103.142.24." + ((item.id || idx) * 7 % 240 + 10),
           country: "VN",
           type: item.note || "[AI Engine] Đã kiểm tra qua mô hình học sâu",
           level: level,
           confidence: Math.round(item.confidence || (level === "Độc hại" ? 95 : 3)),
           time: timeStr,
-          relativeTime: "Gần đây",
+          relativeTime: relativeTime,
           ssl: level === "An toàn" ? "DigiCert Valid" : "Không mã hóa SSL",
           xai: item.note || "Được phân tích bởi mô hình PhoBERT + XGBoost."
         };
@@ -152,21 +179,34 @@ export default function HistoryPage() {
     fetchHistory();
 
     // Listen for WebSocket events from Backend
+    let ws: WebSocket | null = null;
     try {
-      const ws = new WebSocket('ws://localhost:8000/ws');
+      ws = new WebSocket('ws://localhost:8000/ws');
       ws.onmessage = (event) => {
         if (event.data === "new_scan") {
           fetchHistory();
         }
       };
-      return () => ws.close();
     } catch(e) {}
+
+    // Polling tự động làm mới lịch sử mỗi 3 giây
+    const pollTimer = setInterval(() => {
+      fetchHistory();
+    }, 3000);
+
+    return () => {
+      if (ws) ws.close();
+      clearInterval(pollTimer);
+    };
   }, []);
 
   const filteredLogs = logs.filter(log => {
-    const matchesSearch = log.domain.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          log.ip.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          log.type.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch = !q ||
+                          (log.domain && log.domain.toLowerCase().includes(q)) || 
+                          (log.url && log.url.toLowerCase().includes(q)) ||
+                          (log.ip && log.ip.toLowerCase().includes(q)) ||
+                          (log.type && log.type.toLowerCase().includes(q));
     const matchesFilter = filter === "Tất cả" || log.level === filter;
     return matchesSearch && matchesFilter;
   });
@@ -181,10 +221,10 @@ export default function HistoryPage() {
     setCurrentPage(1);
   }, [searchQuery, filter]);
 
-  const totalAudits = logs.length;
-  const maliciousCount = logs.filter(l => l.level === "Độc hại").length;
-  const suspiciousCount = logs.filter(l => l.level === "Đáng ngờ").length;
-  const safeCount = logs.filter(l => l.level === "An toàn").length;
+  const totalAudits = statsData?.total_scans ?? logs.length;
+  const maliciousCount = statsData?.total_threats ?? logs.filter(l => l.level === "Độc hại").length;
+  const suspiciousCount = statsData?.suspicious_count ?? logs.filter(l => l.level === "Đáng ngờ").length;
+  const safeCount = statsData?.total_safe ?? logs.filter(l => l.level === "An toàn").length;
 
   // Xuất Bảng Tính Microsoft Excel (.xls) chuẩn đơn sắc: toàn bộ chữ đen, nền trắng, không màu, kẻ ô rõ ràng
   const exportExcel = () => {

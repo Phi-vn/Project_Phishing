@@ -94,16 +94,26 @@ export default function OverviewPage() {
     fetchLiveThreats();
 
     // Listen for WebSocket events from Backend
+    let ws: WebSocket | null = null;
     try {
-      const ws = new WebSocket('ws://localhost:8000/ws');
+      ws = new WebSocket('ws://localhost:8000/ws');
       ws.onmessage = (event) => {
         if (event.data === "new_scan") {
           fetchStats();
           fetchLiveThreats();
         }
       };
-      return () => ws.close();
     } catch(e) {}
+
+    // Polling tự động làm mới mỗi 3 giây
+    const pollTimer = setInterval(() => {
+      fetchStats();
+    }, 3000);
+
+    return () => {
+      if (ws) ws.close();
+      clearInterval(pollTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -218,7 +228,12 @@ export default function OverviewPage() {
         }
         if (!path || path === "") path = "/";
 
-        const itemTime = item.timestamp ? new Date(item.timestamp).getTime() : now - idx * 60000;
+        let ts = item.timestamp ? String(item.timestamp).trim().replace(" ", "T") : "";
+        if (ts && !ts.endsWith("Z") && !ts.includes("+")) {
+          ts += "Z";
+        }
+        const itemDate = ts ? new Date(ts) : new Date(now - idx * 60000);
+        const itemTime = isNaN(itemDate.getTime()) ? (now - idx * 60000) : itemDate.getTime();
         const diffMinutes = Math.max(0, Math.floor((now - itemTime) / 60000));
         let relativeTime = "Vừa xong";
         if (diffMinutes >= 1440) {

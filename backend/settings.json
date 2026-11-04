@@ -1,5 +1,5 @@
 {
-  "trustScore": 75,
+  "trustScore": 85,
   "protectionMode": "block",
   "blockRiskyTLD": true,
   "sslStrictInspection": true,
@@ -36,9 +36,5 @@
   "enableSoundAlert": true,
   "sendTelemetry": true,
   "reportFrequency": "daily",
-  "blockPageConfig": {
-    "warningTitle": "CẢNH BÁO: Phát hiện liên kết lừa đảo nguy hiểm!",
-    "warningDesc": "Hệ thống PhishArmor AI đã ngăn chặn liên kết này.",
-    "savedAt": "2026-11-03T14:30:00.718Z"
-  }
+  "activeProfile": "soc"
 }
