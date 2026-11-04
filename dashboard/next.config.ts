@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Cấu hình build Next.js
+  // @ts-ignore
+  agentRules: false,
 };
 
 export default nextConfig;

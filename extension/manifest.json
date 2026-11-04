@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Project Phishing Protector",
-  "version": "1.0.0",
-  "description": "Tiện ích phát hiện và cảnh báo website lừa đảo qua AI",
+  "name": "PhishArmor AI - Phát hiện & Phòng vệ Website Lừa Đảo",
+  "version": "1.2.0",
+  "description": "Tiện ích phát hiện và cảnh báo website lừa đảo thời gian thực qua PhoBERT & XGBoost",
   "permissions": [
     "activeTab",
     "storage"
@@ -12,6 +12,6 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Project Phishing"
+    "default_title": "PhishArmor AI"
   }
 }

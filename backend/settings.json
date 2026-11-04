@@ -1,0 +1,44 @@
+{
+  "trustScore": 75,
+  "protectionMode": "block",
+  "blockRiskyTLD": true,
+  "sslStrictInspection": true,
+  "inspectShortenedUrls": true,
+  "punycodeDefense": true,
+  "activeModel": "phisharmor_hybrid_v1.2",
+  "usePhobert": true,
+  "useGeminiXAI": true,
+  "geminiApiKey": "AIzaSyD-PhishArmor_Production_Key_99812",
+  "enableDomScan": true,
+  "inferenceCache": true,
+  "whitelist": [
+    "vietcombank.com.vn",
+    "dichvucong.gov.vn",
+    "docs.google.com",
+    "mbbank.com.vn",
+    "shopee.vn",
+    "google.com",
+    "facebook.com",
+    "youtube.com",
+    "github.com",
+    "chinhphu.vn"
+  ],
+  "blacklist": [
+    "yourbnk-secure-login.net",
+    "facebook-gift-claim.top",
+    "shopee-voucher-vip88.click",
+    "auth-mbbank-secure.top",
+    "portal-evn-dienluc.info"
+  ],
+  "syncNcscFeed": true,
+  "enableTelegramAlerts": true,
+  "telegramWebhook": "https://api.telegram.org/bot7281.../sendMessage",
+  "enableSoundAlert": true,
+  "sendTelemetry": true,
+  "reportFrequency": "daily",
+  "blockPageConfig": {
+    "warningTitle": "CẢNH BÁO: Phát hiện liên kết lừa đảo nguy hiểm!",
+    "warningDesc": "Hệ thống PhishArmor AI đã ngăn chặn liên kết này.",
+    "savedAt": "2026-11-03T14:30:00.718Z"
+  }
+}
