@@ -86,8 +86,11 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
       });
     } catch (e) {}
 
+    // Lấy điểm tin cậy chuẩn từ Backend
+    const trustScore = result.trust_score !== undefined ? Math.round(result.trust_score) : 8;
+
     // Chuyển hướng người dùng sang trang cảnh báo an toàn
-    const blockPageUrl = chrome.runtime.getURL(`block.html?url=${encodeURIComponent(targetUrl)}&score=${result.confidence || 95}`);
+    const blockPageUrl = chrome.runtime.getURL(`block.html?url=${encodeURIComponent(targetUrl)}&trust_score=${trustScore}`);
     chrome.tabs.update(details.tabId, { url: blockPageUrl });
   } else {
     // An toàn: Gắn badge màu xanh

@@ -4,10 +4,9 @@ document.addEventListener("DOMContentLoaded", () => {
   try {
     const params = new URLSearchParams(window.location.search);
     const rawUrl = params.get("url");
-    const rawScore = params.get("score");
+    const rawTrustScore = params.get("trust_score") || params.get("score");
 
     if (rawUrl) {
-      // Làm sạch URL để hiển thị gọn gàng
       let displayUrl = rawUrl;
       try {
         const u = new URL(rawUrl);
@@ -26,13 +25,18 @@ document.addEventListener("DOMContentLoaded", () => {
       updateDynamicXAI(displayUrl);
     }
 
-    if (rawScore) {
-      const scoreNum = parseInt(rawScore) || 90;
-      const riskNum = Math.max(5, Math.min(99, 100 - scoreNum));
-      const badgeEl = document.getElementById("risk-badge");
-      if (badgeEl) {
-        badgeEl.innerText = `Risk Score: ${riskNum}/100`;
+    // Hiển thị thống nhất nhãn Trust Score (Điểm tin cậy: Càng thấp càng nguy hiểm)
+    let trustScoreNum = 8;
+    if (rawTrustScore) {
+      const val = parseInt(rawTrustScore);
+      if (!isNaN(val)) {
+        // Nếu truyền confidence cao (> 50) thì quy đổi về trust score (100 - val), còn nếu đã là trust score (< 50) thì giữ nguyên
+        trustScoreNum = val > 50 ? Math.max(1, 100 - val) : val;
       }
+    }
+    const badgeEl = document.getElementById("risk-badge");
+    if (badgeEl) {
+      badgeEl.innerText = `Trust Score: ${trustScoreNum}/100`;
     }
   } catch (err) {
     console.error("[PhishArmor Block] Error loading parameters:", err);
@@ -113,7 +117,7 @@ function updateDynamicXAI(targetUrl) {
       <span>🚨</span>
       <div>
         <strong>Tên miền giả mạo thương hiệu (Typosquatting)</strong>
-        <span>Cố tình sử dụng tên miền nhái dịch vụ ngân hàng với đuôi tên miền rủi ro cao.</span>
+        <span>Cố tình sử dụng tên miền nhái dịch vụ ngân hàng với đuôi tên miền rủi ro cao (.top, .net).</span>
       </div>
     </div>
     <div class="xai-item">
