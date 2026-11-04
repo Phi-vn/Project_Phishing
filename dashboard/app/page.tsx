@@ -98,7 +98,7 @@ export default function Dashboard() {
   };
 
   const handleQuickReportPhishing = async () => {
-    const fullUrl = url.startsWith("http") ? url : `https://${url}`;
+    const fullUrl = url.trim();
     try {
       await fetch("http://127.0.0.1:8000/api/feedback", {
         method: "POST",
@@ -126,7 +126,7 @@ export default function Dashboard() {
     if (!isActive) return;
     setIsScanning(true);
     try {
-      const fullUrl = testUrl.startsWith("http") ? testUrl : `https://${testUrl}`;
+      const fullUrl = testUrl.trim();
       const res = await fetch("http://localhost:8000/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -474,7 +474,7 @@ ${backendXai || `Hệ thống PhishArmor AI phát hiện URL này có điểm ti
               <button onClick={() => setShowAiModal(false)} className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
                 Đóng
               </button>
-              <Link href={`/scan?url=${encodeURIComponent(url.startsWith("http") ? url : `https://${url}`)}`} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors flex items-center gap-1.5">
+              <Link href={`/scan?url=${encodeURIComponent(url.trim())}`} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors flex items-center gap-1.5">
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 Quét Chuyên Sâu ở Dashboard
               </Link>
