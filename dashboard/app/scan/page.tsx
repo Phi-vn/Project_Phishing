@@ -951,6 +951,66 @@ export default function ScanPage() {
             </button>
           </div>
 
+          {/* Action Command Bar */}
+          <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs flex flex-col xl:flex-row justify-between items-start xl:items-center gap-5">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500/15 via-blue-500/10 to-indigo-500/15 dark:from-sky-500/25 dark:to-indigo-500/25 border border-sky-200/70 dark:border-sky-800/60 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0 shadow-xs">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white tracking-tight">Quyết định xử lý đường dẫn</h4>
+                  <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                    SOC Actions
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Lưu chính sách phòng vệ cho tiện ích mở rộng hoặc chuyển tiếp điều tra chuyên sâu
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 items-center gap-2.5 w-full xl:w-auto">
+              <button 
+                onClick={handleAddToWhitelist}
+                className="px-3.5 py-2.5 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700/80 hover:border-emerald-500/60 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 text-slate-700 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-300 rounded-xl text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                title="Đánh dấu tên miền này là an toàn và đưa vào Danh sách Tin cậy"
+              >
+                <svg className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <span>Thêm Whitelist</span>
+              </button>
+              
+              <button 
+                onClick={handleAddToBlacklist}
+                className="px-3.5 py-2.5 bg-rose-50/80 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 rounded-xl text-xs font-semibold transition-all border border-rose-200 dark:border-rose-900/50 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                title="Khóa vĩnh viễn tên miền này trong Danh sách Đen của hệ thống"
+              >
+                <svg className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+                <span>Chặn tên miền</span>
+              </button>
+
+              <button 
+                onClick={handleSendToFeedback}
+                className="px-3.5 py-2.5 bg-indigo-50/80 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-xl text-xs font-semibold transition-all border border-indigo-200 dark:border-indigo-900/50 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                title="Chuyển URL này vào Hàng đợi Duyệt phản hồi mẫu để chuyên viên thẩm định và nạp vào Dataset"
+              >
+                <svg className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                <span>Chuyển duyệt mẫu</span>
+              </button>
+
+              <button 
+                onClick={handleExportReport}
+                className="px-4 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs shadow-sky-500/20 hover:shadow-md hover:shadow-sky-500/30 flex items-center justify-center gap-1.5 cursor-pointer"
+                title="Tải trực tiếp biên bản giám định an toàn URL về máy tính"
+              >
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <span>Xuất Báo Cáo XAI</span>
+              </button>
+            </div>
+          </div>
+
           {/* Grid Layout for Deep Dive */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
@@ -1327,49 +1387,7 @@ export default function ScanPage() {
 
           </div>
 
-          {/* Action Bar */}
-          <div className="bg-white dark:bg-[#111827] rounded-xl border border-slate-200 dark:border-slate-800 p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-xs">
-            <div>
-              <h4 className="font-bold text-xs text-slate-900 dark:text-white">Quyết định xử lý đường dẫn</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Lưu kết quả hoặc cập nhật quy tắc cho tiện ích mở rộng trên trình duyệt</p>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <button 
-                onClick={handleAddToWhitelist}
-                className="px-3.5 py-2 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                Thêm vào Whitelist
-              </button>
-              
-              <button 
-                onClick={handleAddToBlacklist}
-                className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 rounded-lg text-xs font-semibold transition-colors border border-rose-200 dark:border-rose-900/50 flex items-center gap-1.5 cursor-pointer"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
-                Chặn tên miền này
-              </button>
-
-              <button 
-                onClick={handleSendToFeedback}
-                className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-semibold transition-colors border border-indigo-200 dark:border-indigo-900/50 flex items-center gap-1.5 cursor-pointer"
-                title="Đẩy URL này vào Hàng đợi Duyệt phản hồi mẫu (/feedback) để nạp vào quy trình Retrain mô hình"
-              >
-                <svg className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                Gửi vào Duyệt mẫu (/feedback)
-              </button>
-
-              <button 
-                onClick={handleExportReport}
-                className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
-                title="Tải trực tiếp biên bản giám định an toàn URL về máy tính"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                Xuất Báo Cáo XAI (Tải về)
-              </button>
-            </div>
-          </div>
 
         </div>
       </main>

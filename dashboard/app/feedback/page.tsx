@@ -866,9 +866,9 @@ export default function FeedbackPage() {
         <div className="max-w-7xl mx-auto space-y-8">
           
           {/* Top Context & Actions Strip */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-slate-800/80">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-slate-200/80 dark:border-slate-800/80">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-lg shadow-sm border border-indigo-500/20">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-lg shadow-sm border border-indigo-500/20 shrink-0">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                 </svg>
@@ -886,7 +886,9 @@ export default function FeedbackPage() {
               </div>
             </div>
 
+            {/* Combined Action & Export Toolkit (Ảnh 3 + Ảnh 4) */}
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Nút 1: Duyệt nhanh */}
               <button
                 onClick={handleBatchApprove}
                 className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-medium transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
@@ -894,28 +896,78 @@ export default function FeedbackPage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                 </svg>
-                Duyệt nhanh tất cả ({pendingCount})
+                <span>Duyệt nhanh tất cả ({pendingCount})</span>
               </button>
 
+              <div className="w-px h-5 bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
+
+              {/* Nút 2: Tải Báo Cáo (.html - Xem ngay) */}
               <button
                 onClick={exportReportHtml}
-                className="px-3.5 py-2 bg-[#00897b] hover:bg-[#00796b] text-white rounded-lg text-xs font-medium transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-2 bg-[#00897b] hover:bg-[#00796b] text-white rounded-lg text-xs font-medium transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
                 title="Tải báo cáo HTML trực quan xem ngay bằng trình duyệt và in PDF"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                Xem Báo Cáo (.html)
+                <span>Báo Cáo (.html)</span>
               </button>
 
+              {/* Nút 3: Xuất Bảng Tính Excel (.xls) */}
+              <button
+                onClick={exportExcel}
+                className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                title="Xuất bảng tính Microsoft Excel có định dạng kẻ ô, màu sắc, không dính chữ"
+              >
+                <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M3 14h18m-9-4v8m-7 4h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span>Xuất Excel (.xls)</span>
+              </button>
+
+              {/* Nút 4: Xuất CSV */}
+              <button
+                onClick={exportCsv}
+                className="px-3 py-2 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
+                title="Xuất tệp CSV tiêu chuẩn"
+              >
+                <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span>Xuất CSV</span>
+              </button>
+
+              {/* Nút 5: Xuất JSON */}
+              <button
+                onClick={() => {
+                  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(reports, null, 2));
+                  const downloadAnchor = document.createElement('a');
+                  downloadAnchor.setAttribute("href", dataStr);
+                  downloadAnchor.setAttribute("download", `phisharmor_feedback_dataset_${new Date().toISOString().slice(0,10)}.json`);
+                  downloadAnchor.click();
+                  downloadAnchor.remove();
+                  showToast("Đã xuất 100% dữ liệu gán nhãn ra file JSON!", "success");
+                }}
+                className="px-3 py-2 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
+                title="Xuất file JSON nguyên bản cho Pipeline AI"
+              >
+                <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                <span>Xuất JSON</span>
+              </button>
+
+              <div className="w-px h-5 bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
+
+              {/* Nút 6: Sang Huấn Luyện AI */}
               <Link
                 href="/training"
-                className="px-3.5 py-2 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm flex items-center gap-1.5"
+                className="px-3 py-2 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-xs flex items-center gap-1.5"
               >
-                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                Sang Huấn Luyện AI
+                <span>Sang Huấn Luyện AI</span>
               </Link>
             </div>
           </div>
@@ -1348,60 +1400,13 @@ export default function FeedbackPage() {
             {/* FOOTER PAGINATION & STATS */}
             <div className="p-4 bg-slate-50/50 dark:bg-[#1e293b]/30 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 dark:text-slate-400 gap-3">
               <div>
-                Hiển thị <span className="font-bold text-slate-700 dark:text-slate-300">{filteredReports.length}</span> trên tổng số <span className="font-bold text-slate-700 dark:text-slate-300">{reports.length}</span> báo cáo
+                Hiển thị <span className="font-bold text-slate-700 dark:text-slate-300">{filteredReports.length}</span> trên tổng số <span className="font-bold text-slate-700 dark:text-slate-300">{reports.length}</span> báo cáo phản hồi
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={exportReportHtml}
-                  className="px-3 py-1.5 bg-[#00897b] hover:bg-[#00796b] text-white rounded-lg font-medium text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                  title="Tải báo cáo HTML trực quan xem ngay bằng trình duyệt (có màu sắc, biểu đồ, nút in PDF)"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Tải Báo Cáo (.html - Xem ngay)
-                </button>
-
-                <button
-                  onClick={exportExcel}
-                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg font-medium text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Xuất bảng tính Microsoft Excel có định dạng kẻ ô, màu sắc, không dính chữ"
-                >
-                  <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M3 14h18m-9-4v8m-7 4h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  Xuất Bảng Tính Excel (.xls)
-                </button>
-
-                <button
-                  onClick={exportCsv}
-                  className="px-3 py-1.5 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-700 rounded-lg font-medium hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Xuất tệp CSV tiêu chuẩn"
-                >
-                  <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Xuất CSV (.csv)
-                </button>
-
-                <button
-                  onClick={() => {
-                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(reports, null, 2));
-                    const downloadAnchor = document.createElement('a');
-                    downloadAnchor.setAttribute("href", dataStr);
-                    downloadAnchor.setAttribute("download", `phisharmor_feedback_dataset_${new Date().toISOString().slice(0,10)}.json`);
-                    downloadAnchor.click();
-                    downloadAnchor.remove();
-                    showToast("Đã xuất 100% dữ liệu gán nhãn ra file JSON!", "success");
-                  }}
-                  className="px-3 py-1.5 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-700 rounded-lg font-medium hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Xuất file JSON nguyên bản cho Pipeline AI"
-                >
-                  <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                  </svg>
-                  Xuất JSON
-                </button>
+              <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>100% Mẫu gán nhãn đã sẵn sàng cho Pipeline Huấn Luyện AI (Active Learning)</span>
+                </span>
               </div>
             </div>
 

@@ -53,7 +53,7 @@ export default function BlockPage() {
 
       return {
 
-        trustScore: 8,
+        trustScore: 5,
 
         category: "Tài chính & Ngân hàng",
 
