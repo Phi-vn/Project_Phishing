@@ -261,7 +261,7 @@
     <!-- Blocked URL Pill -->
     <div class="blocked-url-box">
       <span class="dot"></span>
-      <span class="url-text" id="blocked-url">yourbnk-secure.net/login</span>
+      <span class="url-text" id="blocked-url">Đang phân tích URL...</span>
     </div>
 
     <p class="desc">
@@ -275,19 +275,21 @@
         <span class="xai-badge" id="risk-badge">Risk Score: 12/100</span>
       </div>
 
-      <div class="xai-item">
-        <span>🚨</span>
-        <div>
-          <strong>Tên miền giả mạo thương hiệu (Typosquatting)</strong>
-          <span>Cố tình sử dụng tên miền nhái dịch vụ hợp pháp với đuôi tên miền rủi ro cao.</span>
+      <div id="xai-content">
+        <div class="xai-item">
+          <span>🚨</span>
+          <div>
+            <strong>Tên miền giả mạo thương hiệu (Typosquatting)</strong>
+            <span>Cố tình sử dụng tên miền nhái dịch vụ hợp pháp với đuôi tên miền rủi ro cao.</span>
+          </div>
         </div>
-      </div>
 
-      <div class="xai-item">
-        <span>🔒</span>
-        <div>
-          <strong>Biểu mẫu thu thập dữ liệu trái phép</strong>
-          <span>Phát hiện cấu trúc form tự động đánh cắp mật khẩu đăng nhập và mã OTP.</span>
+        <div class="xai-item">
+          <span>🔒</span>
+          <div>
+            <strong>Biểu mẫu thu thập dữ liệu trái phép</strong>
+            <span>Phát hiện cấu trúc form tự động đánh cắp mật khẩu đăng nhập và mã OTP.</span>
+          </div>
         </div>
       </div>
     </div>
@@ -304,21 +306,6 @@
 
   </div>
 
-  <script>
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const url = params.get('url');
-      const score = params.get('score');
-      if (url) {
-        document.getElementById('blocked-url').innerText = url;
-        document.title = "Đã chặn nguy hiểm: " + url + " - PhishArmor AI";
-      }
-      if (score) {
-        const risk = Math.max(0, 100 - parseInt(score));
-        document.getElementById('risk-badge').innerText = "Risk: " + risk + "/100";
-      }
-    } catch(e) {}
-  </script>
-
+  <script src="block.js"></script>
 </body>
 </html>
