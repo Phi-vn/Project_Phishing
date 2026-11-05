@@ -229,6 +229,41 @@
     .btn-report:hover {
       color: #ffffff;
     }
+    .footer-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .sep {
+      color: #475569;
+      font-size: 12px;
+    }
+    .btn-bypass {
+      background: transparent;
+      border: none;
+      color: #f43f5e;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: underline;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .btn-bypass:hover {
+      color: #fda4af;
+    }
+    .toast-msg {
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -295,14 +330,22 @@
     </div>
 
     <!-- Action Buttons -->
-    <button onclick="window.location.href='https://www.google.com'" class="btn-safe">
+    <button id="btn-safe" class="btn-safe">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
       <span>Quay Lại Trang An Toàn (Khuyên Dùng)</span>
     </button>
 
-    <button onclick="alert('Đã ghi nhận báo cáo nhầm lẫn (False Positive) gửi về hệ thống giám sát SOC PhishArmor!')" class="btn-report">
-      Báo cáo nhầm lẫn (False Positive)
-    </button>
+    <div class="footer-actions">
+      <button id="btn-report" class="btn-report">
+        Báo cáo nhầm lẫn (False Positive)
+      </button>
+      <span class="sep">•</span>
+      <button id="btn-bypass" class="btn-bypass">
+        Tôi hiểu rủi ro &amp; vẫn muốn truy cập (Bypass)
+      </button>
+    </div>
+
+    <div id="toast-msg" class="toast-msg" style="display: none;"></div>
 
   </div>
 

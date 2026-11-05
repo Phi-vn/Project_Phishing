@@ -6,6 +6,9 @@ const BACKEND_API = "http://127.0.0.1:8000/predict";
 // Cache tạm thời các domain đã kiểm tra để tối ưu tốc độ (tránh gọi API lặp lại trong 60s)
 const urlCache = new Map();
 
+// Danh sách URL được người dùng chủ động bỏ qua cảnh báo (Bypass)
+const bypassedUrls = new Set();
+
 // Danh sách domain nội bộ / an toàn bỏ qua
 const IGNORED_HOSTS = [
   "localhost",
@@ -65,6 +68,12 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   // Bỏ qua trang block của extension để tránh vòng lặp
   if (targetUrl.includes("block.html") || targetUrl.includes("/block")) return;
 
+  // Bỏ qua nếu URL nằm trong danh sách người dùng đã chủ động Bypass
+  try {
+    const targetHost = new URL(targetUrl).hostname.toLowerCase();
+    if (bypassedUrls.has(targetUrl) || bypassedUrls.has(targetHost)) return;
+  } catch (e) {}
+
   const result = await inspectUrl(targetUrl);
   if (!result) return;
 
@@ -116,6 +125,22 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
       chrome.action.setBadgeBackgroundColor({ color: "#10b981", tabId: activeInfo.tabId });
     }
   } catch (e) {}
+});
+
+// 3. Lắng nghe tin nhắn từ trang Block (Xử lý Bypass mở khóa truy cập)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "bypass_url" && message.url) {
+    try {
+      const u = new URL(message.url);
+      bypassedUrls.add(message.url);
+      bypassedUrls.add(u.hostname.toLowerCase());
+      bypassedUrls.add(u.href);
+    } catch (e) {
+      bypassedUrls.add(message.url);
+    }
+    sendResponse({ status: "ok" });
+  }
+  return true;
 });
 
 console.log("[PhishArmor AI] Extension Realtime Detection Engine Loaded Successfully!");

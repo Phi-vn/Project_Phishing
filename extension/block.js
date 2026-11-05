@@ -38,6 +38,66 @@ document.addEventListener("DOMContentLoaded", () => {
     if (badgeEl) {
       badgeEl.innerText = `Trust Score: ${trustScoreNum}/100`;
     }
+
+    // Xử lý sự kiện click cho các nút hành động (Manifest V3 - Không dùng inline onclick)
+
+    // 1. Nút Quay Lại Trang An Toàn
+    const safeBtn = document.getElementById("btn-safe");
+    if (safeBtn) {
+      safeBtn.addEventListener("click", () => {
+        window.location.href = "https://www.google.com";
+      });
+    }
+
+    // 2. Nút Báo cáo nhầm lẫn (False Positive)
+    const reportBtn = document.getElementById("btn-report");
+    const toastMsg = document.getElementById("toast-msg");
+    if (reportBtn) {
+      reportBtn.addEventListener("click", async () => {
+        reportBtn.disabled = true;
+        reportBtn.style.opacity = "0.7";
+        reportBtn.innerText = "Đang gửi báo cáo...";
+
+        try {
+          await fetch("http://127.0.0.1:8000/api/feedback", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              url: rawUrl || window.location.href,
+              report_type: "false_positive",
+              reason: "Người dùng báo cáo nhầm lẫn từ màn hình cảnh báo tiện ích PhishArmor",
+              email: "analyst@phisharmor.vn"
+            })
+          });
+        } catch (e) {
+          console.warn("[PhishArmor] Gửi feedback:", e);
+        }
+
+        reportBtn.innerText = "✓ Đã báo cáo nhầm lẫn";
+        if (toastMsg) {
+          toastMsg.style.display = "block";
+          toastMsg.innerText = "✓ Đã ghi nhận báo cáo! Hệ thống SOC sẽ tiến hành phúc tra an toàn.";
+        }
+      });
+    }
+
+    // 3. Nút Bỏ qua rủi ro và tiếp tục truy cập (Bypass)
+    const bypassBtn = document.getElementById("btn-bypass");
+    if (bypassBtn) {
+      bypassBtn.addEventListener("click", () => {
+        if (rawUrl) {
+          if (confirm("⚠️ CẢNH BÁO NGUY HIỂM:\nTrang web này có dấu hiệu lừa đảo và đánh cắp thông tin tài khoản.\nBạn có chắc chắn muốn bỏ qua cảnh báo và tiếp tục truy cập không?")) {
+            try {
+              chrome.runtime.sendMessage({ action: "bypass_url", url: rawUrl }, () => {
+                window.location.href = rawUrl;
+              });
+            } catch (e) {
+              window.location.href = rawUrl;
+            }
+          }
+        }
+      });
+    }
   } catch (err) {
     console.error("[PhishArmor Block] Error loading parameters:", err);
   }
