@@ -264,6 +264,72 @@ export default function RobotAssistant() {
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null);
   const hasMovedRef = useRef(false);
+  const [isTranslucent, setIsTranslucent] = useState(false);
+
+  // Xác định hướng mở thông minh dựa trên vị trí hiện tại của nút
+  const isNearTop = useMemo(() => {
+    if (!position || typeof window === "undefined") return false;
+    return position.y < window.innerHeight * 0.52;
+  }, [position]);
+
+  const isNearLeft = useMemo(() => {
+    if (!position || typeof window === "undefined") return false;
+    return position.x < window.innerWidth * 0.5;
+  }, [position]);
+
+  // Đặt lại vị trí mặc định (Góc dưới bên phải)
+  const handleResetPosition = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (typeof window !== "undefined") {
+      setPosition({
+        x: window.innerWidth - 110,
+        y: window.innerHeight - 130
+      });
+    }
+  };
+
+  // Tính toán vị trí và chiều cao động cho Modal để luôn nằm 100% trong màn hình
+  const modalStyle = useMemo<React.CSSProperties>(() => {
+    if (typeof window === "undefined") {
+      return { bottom: "60px", right: "0px", height: "580px" };
+    }
+
+    const currentY = position ? position.y : window.innerHeight - 130;
+    const currentX = position ? position.x : window.innerWidth - 110;
+    const nearTop = currentY < window.innerHeight * 0.52;
+    const nearLeft = currentX < window.innerWidth * 0.5;
+
+    // Chiều cao khả dụng: không bao giờ tràn ra ngoài mép trên hoặc mép dưới
+    const availableHeight = nearTop 
+      ? Math.max(340, window.innerHeight - currentY - 75)
+      : Math.max(340, currentY - 20);
+
+    const calcHeight = Math.min(580, availableHeight);
+
+    const style: React.CSSProperties = {
+      height: `${calcHeight}px`,
+      maxHeight: `${availableHeight}px`,
+      position: "absolute"
+    };
+
+    if (nearTop) {
+      style.top = "56px";
+      style.bottom = "auto";
+    } else {
+      style.bottom = "56px";
+      style.top = "auto";
+    }
+
+    if (nearLeft) {
+      style.left = "0px";
+      style.right = "auto";
+    } else {
+      style.right = "0px";
+      style.left = "auto";
+    }
+
+    return style;
+  }, [position]);
 
   // Nhận diện trang hiện tại
   const currentGuide = PAGE_GUIDES[pathname] || PAGE_GUIDES["/"] || PAGE_GUIDES["/overview"];
@@ -989,7 +1055,9 @@ export default function RobotAssistant() {
       {!isOpen && showBubble && bubbleText && (
         <div 
           onClick={() => { setIsOpen(true); setShowBubble(false); }}
-          className="absolute bottom-16 right-0 w-72 sm:w-80 cursor-pointer animate-fade-in-up transition-all hover:scale-105"
+          className={`absolute w-72 sm:w-80 cursor-pointer animate-fade-in-up transition-all hover:scale-105 ${
+            isNearTop ? "top-16" : "bottom-16"
+          } ${isNearLeft ? "left-0" : "right-0"}`}
         >
           <div className="relative rounded-2xl bg-white/95 dark:bg-[#0f172a]/95 p-3.5 shadow-2xl border border-sky-300 dark:border-sky-500/40 backdrop-blur-md text-xs text-slate-800 dark:text-slate-100 flex items-start gap-2.5">
             <div className="w-6 h-6 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-800 flex items-center justify-center shrink-0">
@@ -1006,17 +1074,27 @@ export default function RobotAssistant() {
             >
               ✕
             </button>
-            <div className="absolute -bottom-2 right-4 w-3 h-3 bg-white dark:bg-[#0f172a] border-r border-b border-sky-300 dark:border-sky-500/40 rotate-45"></div>
+            <div className={`absolute ${isNearTop ? "-top-2 border-l border-t" : "-bottom-2 border-r border-b"} ${isNearLeft ? "left-4" : "right-4"} w-3 h-3 bg-white dark:bg-[#0f172a] border-sky-300 dark:border-sky-500/40 rotate-45`}></div>
           </div>
         </div>
       )}
 
       {/* 2. CỬA SỔ HỘI THOẠI TRỢ LÝ ẢO (Interactive Chat Modal) */}
       {isOpen && (
-        <div className="absolute bottom-16 right-0 w-[380px] sm:w-[440px] max-w-[calc(100vw-2rem)] h-[580px] max-h-[85vh] bg-white/95 dark:bg-[#0b1329]/95 backdrop-blur-2xl border border-sky-300/80 dark:border-sky-500/30 rounded-3xl shadow-[0_20px_60px_-15px_rgba(2,132,199,0.35)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 select-text">
+        <div 
+          style={modalStyle}
+          className={`w-[380px] sm:w-[440px] max-w-[calc(100vw-2rem)] bg-white/95 dark:bg-[#0b1329]/95 backdrop-blur-2xl border border-sky-300/80 dark:border-sky-500/30 rounded-3xl shadow-[0_20px_60px_-15px_rgba(2,132,199,0.35)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 select-text transition-all ${
+            isTranslucent ? "opacity-30 hover:opacity-100" : "opacity-100"
+          }`}
+        >
           
           {/* Header thanh lịch & chuẩn Enterprise */}
-          <div className="px-3.5 py-3 bg-gradient-to-r from-sky-600 via-sky-700 to-blue-700 text-white flex items-center justify-between gap-2 shadow-md shrink-0">
+          <div 
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
+            className="px-3.5 py-3 bg-gradient-to-r from-sky-600 via-sky-700 to-blue-700 text-white flex items-center justify-between gap-2 shadow-md shrink-0 cursor-grab active:cursor-grabbing select-none"
+            title="Nhấn giữ thanh tiêu đề này để kéo cửa sổ chat đến bất cứ đâu trên màn hình"
+          >
             {/* Left: Avatar + Title & Status */}
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
               <div className="relative w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center shadow-inner shrink-0">
@@ -1044,7 +1122,36 @@ export default function RobotAssistant() {
             </div>
 
             {/* Right: Actions */}
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1 shrink-0" onMouseDown={(e) => e.stopPropagation()}>
+              {/* Nút Chế độ nhìn xuyên thấu (Ghost mode) */}
+              <button 
+                type="button"
+                onClick={() => setIsTranslucent(!isTranslucent)}
+                title={isTranslucent ? "Tắt chế độ nhìn xuyên thấu" : "Nhìn xuyên thấu thông tin trang bên dưới (Ghost mode)"}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0 cursor-pointer border ${
+                  isTranslucent 
+                    ? "bg-amber-400 text-amber-950 border-amber-300 font-bold shadow-xs" 
+                    : "bg-white/10 hover:bg-white/20 text-white/90 hover:text-white border-white/15"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+
+              {/* Nút Đặt lại vị trí mặc định góc dưới */}
+              <button 
+                type="button"
+                onClick={handleResetPosition}
+                title="Đưa trợ lý về vị trí góc dưới bên phải mặc định"
+                className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-white/90 hover:text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer border border-white/15"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                  <circle cx="12" cy="10" r="3"/>
+                </svg>
+              </button>
               <button 
                 onClick={() => setShowKeyModal(!showKeyModal)}
                 title={hasKey ? "Đã kích hoạt Google Gemini AI (Nhấp để quản lý khóa)" : "Kích hoạt Google Gemini AI để mở rộng phân tích"}
