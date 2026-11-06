@@ -28,10 +28,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // Hiển thị thống nhất nhãn Trust Score (Điểm tin cậy: Càng thấp càng nguy hiểm)
     let trustScoreNum = 8;
     if (rawTrustScore) {
-      const val = parseInt(rawTrustScore);
+      const val = parseInt(rawTrustScore, 10);
       if (!isNaN(val)) {
-        // Nếu truyền confidence cao (> 50) thì quy đổi về trust score (100 - val), còn nếu đã là trust score (< 50) thì giữ nguyên
-        trustScoreNum = val > 50 ? Math.max(1, 100 - val) : val;
+        trustScoreNum = Math.min(100, Math.max(1, val));
       }
     }
     const badgeEl = document.getElementById("risk-badge");

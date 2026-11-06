@@ -917,40 +917,6 @@ export default function ScanPage() {
             </div>
           </div>
 
-          {/* Input Search Box */}
-          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-2 flex flex-col sm:flex-row items-center gap-2">
-            <div className="pl-3 pr-1 text-slate-400 hidden sm:block">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            </div>
-
-            <input 
-              type="text" 
-              value={url} 
-              onChange={e => setUrl(e.target.value)} 
-              onKeyDown={(e) => { if(e.key === 'Enter') handleScan(); }}
-              placeholder="Nhập hoặc dán địa chỉ URL cần kiểm tra (ví dụ: https://example.com)..."
-              className="flex-1 w-full text-xs sm:text-sm font-mono p-2.5 outline-none text-slate-800 dark:text-slate-100 bg-transparent placeholder-slate-400" 
-            />
-
-            <button 
-              onClick={() => handleScan()} 
-              disabled={isScanning} 
-              className="w-full sm:w-auto px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
-            >
-              {isScanning ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  <span>Đang kiểm tra...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                  <span>Kiểm tra URL</span>
-                </>
-              )}
-            </button>
-          </div>
-
           {/* Action Command Bar */}
           <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs flex flex-col xl:flex-row justify-between items-start xl:items-center gap-5">
             <div className="flex items-center gap-3.5">
@@ -1009,6 +975,40 @@ export default function ScanPage() {
                 <span>Xuất Báo Cáo XAI</span>
               </button>
             </div>
+          </div>
+
+          {/* Input Search Box */}
+          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-2 flex flex-col sm:flex-row items-center gap-2">
+            <div className="pl-3 pr-1 text-slate-400 hidden sm:block">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </div>
+
+            <input 
+              type="text" 
+              value={url} 
+              onChange={e => setUrl(e.target.value)} 
+              onKeyDown={(e) => { if(e.key === 'Enter') handleScan(); }}
+              placeholder="Nhập hoặc dán địa chỉ URL cần kiểm tra (ví dụ: https://example.com)..."
+              className="flex-1 w-full text-xs sm:text-sm font-mono p-2.5 outline-none text-slate-800 dark:text-slate-100 bg-transparent placeholder-slate-400" 
+            />
+
+            <button 
+              onClick={() => handleScan()} 
+              disabled={isScanning} 
+              className="w-full sm:w-auto px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
+            >
+              {isScanning ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  <span>Đang kiểm tra...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  <span>Kiểm tra URL</span>
+                </>
+              )}
+            </button>
           </div>
 
           {/* Grid Layout for Deep Dive */}

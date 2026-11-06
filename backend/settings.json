@@ -1,5 +1,5 @@
 {
-  "trustScore": 85,
+  "trustScore": 80,
   "protectionMode": "block",
   "blockRiskyTLD": true,
   "sslStrictInspection": true,
@@ -21,7 +21,13 @@
     "facebook.com",
     "youtube.com",
     "github.com",
-    "chinhphu.vn"
+    "chinhphu.vn",
+    "claude.ai",
+    "anthropic.com",
+    "openai.com",
+    "chatgpt.com",
+    "gemini.google.com",
+    "dauenglish.com"
   ],
   "blacklist": [
     "yourbnk-secure-login.net",

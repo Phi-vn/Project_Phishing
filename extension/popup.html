@@ -2,167 +2,684 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PhishArmor AI</title>
   <style>
-    body {
-      width: 375px;
+    * {
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: 'Plus Jakarta Sans', 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      letter-spacing: -0.01em;
+    }
+    html, body {
+      width: 375px;
+      min-width: 375px;
+      max-width: 375px;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       background-color: #f8fafc;
+      color: #0f172a;
       overflow-x: hidden;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
     }
-    .circle-progress {
-      transition: stroke-dashoffset 1s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.5s ease;
+    
+    .container {
+      padding: 18px;
+      position: relative;
     }
-    @keyframes pulse-ring {
-      0% { transform: scale(0.85); opacity: 0.6; }
-      100% { transform: scale(1.3); opacity: 0; }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
     }
-    .safe-pulse::before {
-      content: '';
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-box {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.35);
+      flex-shrink: 0;
+      transition: all 0.3s ease;
+    }
+    .logo-box.safe {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+    }
+    .logo-box.danger {
+      background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+      box-shadow: 0 4px 12px rgba(244, 63, 94, 0.35);
+    }
+    .logo-box svg {
+      width: 20px;
+      height: 20px;
+    }
+    .header-title-wrap {
+      display: flex;
+      flex-direction: column;
+    }
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .app-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+    }
+    .model-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      background: #eef2ff;
+      color: #4f46e5;
+      border: 1px solid #e0e7ff;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .status-dot-container {
+      position: relative;
+      display: flex;
+      width: 7px;
+      height: 7px;
+    }
+    .status-ping {
       position: absolute;
-      left: 0; top: 0; right: 0; bottom: 0;
+      width: 100%;
+      height: 100%;
       border-radius: 50%;
-      border: 3px solid #10b981;
-      animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+      background-color: #34d399;
+      opacity: 0.75;
+      animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
     }
-    .danger-pulse::before {
-      content: '';
-      position: absolute;
-      left: 0; top: 0; right: 0; bottom: 0;
+    .status-dot {
+      position: relative;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
-      border: 3px solid #ef4444;
-      animation: pulse-ring 1s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+      background-color: #10b981;
+    }
+    .status-dot.danger {
+      background-color: #ef4444;
+    }
+    .status-ping.danger {
+      background-color: #f87171;
+    }
+    .status-text {
+      font-size: 11px;
+      font-weight: 600;
+      color: #059669;
+    }
+    .status-text.danger {
+      color: #e11d48;
+    }
+
+    /* iOS Style Toggle Switch */
+    .toggle-wrapper {
+      display: flex;
+      align-items: center;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 22px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #cbd5e1;
+      transition: .3s;
+      border-radius: 22px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+    input:checked + .slider {
+      background-color: #10b981;
+    }
+    input:checked + .slider:before {
+      transform: translateX(18px);
+    }
+
+    /* Score Gauge Section */
+    .gauge-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .gauge-wrapper {
+      position: relative;
+      width: 124px;
+      height: 124px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .gauge-svg {
+      width: 124px;
+      height: 124px;
+      transform: rotate(-90deg);
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    .gauge-bg-circle {
+      fill: none;
+      stroke: #e2e8f0;
+      stroke-width: 8;
+      stroke-linecap: round;
+    }
+    .gauge-progress-circle {
+      fill: none;
+      stroke: #10b981;
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-dasharray: 276.46;
+      stroke-dashoffset: 276.46;
+      transition: stroke-dashoffset 1s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.4s ease;
+    }
+    .gauge-center-text {
+      text-align: center;
+      z-index: 2;
+    }
+    .score-number {
+      font-size: 34px;
+      font-weight: 800;
+      line-height: 1;
+      color: #0f172a;
+      letter-spacing: -0.03em;
+      transition: color 0.3s ease;
+    }
+    .score-number.safe {
+      color: #059669;
+    }
+    .score-number.danger {
+      color: #e11d48;
+    }
+    .score-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #64748b;
+      margin-top: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* Status Badge */
+    .badge-container {
+      margin-top: 10px;
+    }
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 9999px;
+      letter-spacing: 0.02em;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      transition: all 0.3s ease;
+    }
+    .badge-pill.safe {
+      background-color: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+    .badge-pill.danger {
+      background-color: #fff1f2;
+      color: #be123c;
+      border: 1px solid #fecdd3;
+      animation: pulse-danger 2s infinite;
+    }
+    .badge-pill.disabled {
+      background-color: #f1f5f9;
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+    }
+
+    /* Cards */
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+      position: relative;
+      overflow: hidden;
+    }
+    .domain-card {
+      padding-left: 18px;
+    }
+    .card-indicator {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background-color: #10b981;
+      transition: background-color 0.3s ease;
+    }
+    .card-indicator.danger {
+      background-color: #ef4444;
+    }
+    .card-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .card-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .ssl-tag {
+      font-size: 11px;
+      font-weight: 600;
+      color: #059669;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .ssl-tag.danger {
+      color: #e11d48;
+    }
+    .domain-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 6px;
+    }
+    .security-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .tag-chip {
+      font-size: 9px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background-color: #f1f5f9;
+      color: #475569;
+    }
+
+    /* Diagnostics Section */
+    .diagnostics-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 8px;
+    }
+    .diag-icon {
+      font-size: 12px;
+    }
+    .diag-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .diag-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 10px;
+      background: #f8fafc;
+      border-radius: 8px;
+      font-size: 11px;
+    }
+    .diag-name {
+      color: #475569;
+      font-weight: 500;
+    }
+    .diag-val {
+      font-weight: 700;
+      color: #059669;
+    }
+    .diag-val.danger {
+      color: #e11d48;
+    }
+    .diag-message {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed #e2e8f0;
+      font-size: 11px;
+      line-height: 1.4;
+      color: #475569;
+    }
+
+    /* Action Buttons */
+    .actions-group {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-top: 12px;
+    }
+    .btn {
+      width: 100%;
+      border: none;
+      outline: none;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 14px;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+    .btn:active {
+      transform: scale(0.98);
+    }
+    .btn-primary {
+      background: #0f172a;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+    }
+    .btn-primary:hover {
+      background: #1e293b;
+    }
+    .btn-primary:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: #eef2ff;
+      color: #4338ca;
+      border: 1px solid #e0e7ff;
+    }
+    .btn-secondary:hover {
+      background: #e0e7ff;
+    }
+    .btn-dashboard {
+      background: #ffffff;
+      color: #0284c7;
+      border: 1px solid #bae6fd;
+      font-size: 11px;
+      padding: 8px 12px;
+    }
+    .btn-dashboard:hover {
+      background: #f0f9ff;
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+    .spinner.visible {
+      display: inline-block;
+    }
+
+    /* AI Drawer Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: none;
+      align-items: flex-end;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal-card {
+      background: #ffffff;
+      border-top-left-radius: 20px;
+      border-top-right-radius: 20px;
+      width: 100%;
+      max-height: 85vh;
+      padding: 16px;
+      overflow-y: auto;
+      box-shadow: 0 -10px 25px rgba(0,0,0,0.15);
+      animation: slideUp 0.25s ease-out;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #f1f5f9;
+      margin-bottom: 12px;
+    }
+    .modal-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .modal-close {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #f1f5f9;
+      border: none;
+      color: #64748b;
+      font-weight: bold;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-body {
+      font-size: 11px;
+      line-height: 1.5;
+      color: #334155;
+    }
+
+    /* Animations */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes ping {
+      75%, 100% {
+        transform: scale(2);
+        opacity: 0;
+      }
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    @keyframes pulse-danger {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); }
+      50% { box-shadow: 0 0 0 6px rgba(244, 63, 94, 0); }
     }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 transition-colors duration-500" id="body">
+<body id="body">
 
-  <div class="relative p-5">
+  <div class="container">
     
     <!-- Top Header -->
-    <div class="flex items-center justify-between mb-6">
-      <div class="flex items-center gap-2.5">
-        <div class="w-9 h-9 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30 transition-all" id="logo-icon">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+    <div class="header">
+      <div class="header-left">
+        <div class="logo-box safe" id="logo-icon">
+          <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+          </svg>
         </div>
-        <div>
-          <div class="flex items-center gap-1.5">
-            <h1 class="text-sm font-bold text-slate-900 leading-tight">PhishArmor AI</h1>
-            <span class="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-md text-[10px] font-semibold">PhoBERT v1.2</span>
+        <div class="header-title-wrap">
+          <div class="title-row">
+            <h1 class="app-title">PhishArmor AI</h1>
+            <span class="model-badge">PhoBERT v1.2</span>
           </div>
-          <div class="flex items-center gap-1.5 mt-0.5">
-            <span class="relative flex h-2 w-2">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" id="status-ping"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" id="status-dot"></span>
-            </span>
-            <span class="text-[11px] font-medium text-emerald-600" id="system-status">Đang bảo vệ thời gian thực</span>
+          <div class="status-row">
+            <div class="status-dot-container">
+              <span class="status-ping" id="status-ping"></span>
+              <span class="status-dot" id="status-dot"></span>
+            </div>
+            <span class="status-text" id="system-status">Bảo vệ thời gian thực</span>
           </div>
         </div>
       </div>
       
       <!-- Protection Toggle Switch -->
-      <div class="flex items-center gap-2">
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="toggle-protection" checked class="sr-only peer">
-          <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+      <div class="toggle-wrapper">
+        <label class="switch" title="Bật / Tắt bảo vệ chủ động">
+          <input type="checkbox" id="toggle-protection" checked>
+          <span class="slider"></span>
         </label>
       </div>
     </div>
 
     <!-- Score Circle Gauge -->
-    <div class="flex justify-center mb-6 relative">
-      <div class="relative w-36 h-36 flex items-center justify-center" id="score-wrapper">
-        <svg class="w-full h-full transform -rotate-90 absolute drop-shadow-md" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="44" fill="none" stroke="#e2e8f0" stroke-width="7" stroke-linecap="round"></circle>
-          <circle cx="50" cy="50" r="44" fill="none" stroke="#10b981" stroke-width="7" stroke-dasharray="276.46" stroke-dashoffset="276.46" stroke-linecap="round" class="circle-progress" id="score-circle"></circle>
+    <div class="gauge-section">
+      <div class="gauge-wrapper" id="score-wrapper">
+        <svg class="gauge-svg" viewBox="0 0 100 100">
+          <circle class="gauge-bg-circle" cx="50" cy="50" r="44"></circle>
+          <circle class="gauge-progress-circle" id="score-circle" cx="50" cy="50" r="44"></circle>
         </svg>
-        <div class="text-center z-10">
-          <div class="text-[38px] font-bold text-slate-900 tracking-tight leading-none" id="trust-score">--</div>
-          <div class="text-xs font-medium text-slate-400 mt-1">Điểm an toàn</div>
+        <div class="gauge-center-text">
+          <div class="score-number safe" id="trust-score">--</div>
+          <div class="score-label">Điểm an toàn</div>
         </div>
+      </div>
+
+      <!-- Status Badge -->
+      <div class="badge-container">
+        <span class="badge-pill safe" id="badge-status">
+          ✓ ĐỘ TIN CẬY CAO
+        </span>
       </div>
     </div>
 
-    <!-- Status Badge -->
-    <div class="text-center mb-5">
-      <span class="inline-block px-4 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-semibold tracking-normal shadow-xs" id="badge-status">
-        ✓ Độ tin cậy cao
-      </span>
-    </div>
-
     <!-- Domain & Security Badges -->
-    <div class="bg-white rounded-[20px] p-3.5 shadow-sm border border-slate-100 mb-4 relative overflow-hidden">
-      <div class="absolute top-0 left-0 w-1.5 h-full bg-emerald-400" id="url-indicator"></div>
-      <div class="ml-2 space-y-1.5">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-medium text-slate-400">Tên miền đang mở</span>
-          <span class="text-xs font-medium text-slate-500" id="ssl-status">🔒 SSL Hợp lệ</span>
-        </div>
-        <div class="text-[13px] font-semibold text-slate-800 truncate" id="current-url">...</div>
-        <div class="flex flex-wrap gap-1 pt-1">
-          <span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-medium">256-bit CA</span>
-          <span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-medium">IPv4 Verified</span>
-          <span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[10px] font-medium">Cloudflare CDN</span>
-        </div>
+    <div class="card domain-card">
+      <div class="card-indicator" id="url-indicator"></div>
+      <div class="card-top-row">
+        <span class="card-label">Tên miền đang mở</span>
+        <span class="ssl-tag" id="ssl-status">🔒 SSL Hợp lệ</span>
+      </div>
+      <div class="domain-name" id="current-url">...</div>
+      <div class="security-tags">
+        <span class="tag-chip">256-bit CA</span>
+        <span class="tag-chip">IPv4 Verified</span>
+        <span class="tag-chip">Cloudflare CDN</span>
       </div>
     </div>
 
     <!-- Feature Analysis List -->
-    <div class="bg-white rounded-[20px] p-4 shadow-sm border border-slate-100 mb-5" id="xai-box">
-      <div class="flex items-center gap-2 mb-3">
-        <div class="w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500 font-bold text-xs">⚡</div>
-        <span class="text-xs font-semibold text-slate-600">Phân tích đặc trưng URL & Ngữ nghĩa</span>
+    <div class="card" id="xai-box">
+      <div class="diagnostics-title">
+        <span class="diag-icon">⚡</span>
+        <span>Phân tích đặc trưng URL & Ngữ nghĩa</span>
       </div>
       
-      <div class="space-y-2 text-xs" id="feature-list">
-        <div class="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
-          <span class="text-slate-600 font-medium">Cấu trúc đường dẫn (Lexical):</span>
-          <span class="font-bold text-emerald-600" id="feat-lexical">Tốt</span>
+      <div class="diag-list" id="feature-list">
+        <div class="diag-item">
+          <span class="diag-name">Cấu trúc đường dẫn (Lexical):</span>
+          <span class="diag-val" id="feat-lexical">Tốt</span>
         </div>
-        <div class="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
-          <span class="text-slate-600 font-medium">Nhái thương hiệu (Typosquatting):</span>
-          <span class="font-bold text-emerald-600" id="feat-brand">Không</span>
+        <div class="diag-item">
+          <span class="diag-name">Nhái thương hiệu (Typosquatting):</span>
+          <span class="diag-val" id="feat-brand">Đúng tên miền gốc</span>
         </div>
-        <div class="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
-          <span class="text-slate-600 font-medium">Form nhập Password / OTP:</span>
-          <span class="font-bold text-emerald-600" id="feat-form">An toàn</span>
+        <div class="diag-item">
+          <span class="diag-name">Form nhập Password / OTP:</span>
+          <span class="diag-val" id="feat-form">An toàn</span>
         </div>
       </div>
 
-      <div class="mt-3 pt-3 border-t border-slate-100 text-[11px] text-slate-600 font-medium" id="message">
-        Đang chờ phân tích...
+      <div class="diag-message" id="message">
+        Đang chờ phân tích dữ liệu an toàn...
       </div>
     </div>
 
     <!-- Action Buttons -->
-    <div class="space-y-2">
-      <button id="btn-check" class="w-full py-3 bg-slate-900 text-white rounded-[14px] text-[12px] font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
-        <svg class="w-4 h-4 animate-spin hidden" id="btn-spinner" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+    <div class="actions-group">
+      <button id="btn-check" class="btn btn-primary">
+        <div class="spinner" id="btn-spinner"></div>
         <span id="btn-text">Quét lại trang này</span>
       </button>
 
-      <button id="btn-ai-explain" class="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-[14px] text-[12px] font-bold transition-all flex items-center justify-center gap-1.5 border border-indigo-100">
-        <span>✨</span> Hỏi Gemini AI Giải Thích
+      <button id="btn-ai-explain" class="btn btn-secondary">
+        <span>✨</span>
+        <span>Hỏi Gemini AI Giải Thích</span>
+      </button>
+
+      <button id="btn-dashboard" class="btn btn-dashboard">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7"></rect>
+          <rect x="14" y="3" width="7" height="7"></rect>
+          <rect x="14" y="14" width="7" height="7"></rect>
+          <rect x="3" y="14" width="7" height="7"></rect>
+        </svg>
+        <span>Mở Bảng Điều Khiển Quản Trị SOC ↗</span>
       </button>
     </div>
 
     <!-- AI Explanation Drawer Modal -->
-    <div id="ai-drawer" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end">
-      <div class="bg-white rounded-t-[24px] w-full p-5 max-h-[85vh] overflow-y-auto space-y-3">
-        <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-          <div class="flex items-center gap-2">
-            <span class="text-base">✨</span>
-            <h3 class="font-extrabold text-sm text-slate-900">Gemini AI Giải Thích Chi Tiết</h3>
+    <div id="ai-drawer" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-title">
+            <span>✨</span>
+            <span>Gemini AI Giải Thích Chi Tiết</span>
           </div>
-          <button id="close-ai-drawer" class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 font-bold flex items-center justify-center">✕</button>
+          <button id="close-ai-drawer" class="modal-close" title="Đóng">✕</button>
         </div>
-        <div id="ai-drawer-content" class="text-xs text-slate-600 space-y-2 leading-relaxed">
+        <div id="ai-drawer-content" class="modal-body">
           Đang tổng hợp thông tin giải thích từ Gemini...
         </div>
       </div>

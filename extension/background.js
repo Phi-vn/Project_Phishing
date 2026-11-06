@@ -17,7 +17,13 @@ const IGNORED_HOSTS = [
   "extensions",
   "newtab",
   "google.com",
-  "google.com.vn"
+  "google.com.vn",
+  "claude.ai",
+  "anthropic.com",
+  "openai.com",
+  "chatgpt.com",
+  "gemini.google.com",
+  "github.com"
 ];
 
 // Hàm kiểm tra URL qua Backend PhishArmor AI
@@ -77,7 +83,7 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   const result = await inspectUrl(targetUrl);
   if (!result) return;
 
-  if (result.is_phishing) {
+  if (result.is_phishing && result.action === "block") {
     console.warn(`[PhishArmor] 🚨 PHÁT HIỆN LỪA ĐẢO: ${targetUrl}`);
 
     // Cập nhật Badge màu đỏ
@@ -101,8 +107,12 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
     // Chuyển hướng người dùng sang trang cảnh báo an toàn
     const blockPageUrl = chrome.runtime.getURL(`block.html?url=${encodeURIComponent(targetUrl)}&trust_score=${trustScore}`);
     chrome.tabs.update(details.tabId, { url: blockPageUrl });
+  } else if (result.action === "warn" || (result.trust_score !== undefined && result.trust_score < 80)) {
+    // Vùng Vàng (Nghi vấn / Chú ý): Hiển thị huy hiệu màu cam WARN, KHÔNG chặn người dùng
+    chrome.action.setBadgeText({ text: "WARN", tabId: details.tabId });
+    chrome.action.setBadgeBackgroundColor({ color: "#f59e0b", tabId: details.tabId });
   } else {
-    // An toàn: Gắn badge màu xanh
+    // Vùng Xanh (An toàn): Gắn badge màu xanh
     chrome.action.setBadgeText({ text: "SAFE", tabId: details.tabId });
     chrome.action.setBadgeBackgroundColor({ color: "#10b981", tabId: details.tabId });
   }
@@ -117,9 +127,12 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
       return;
     }
     const result = await inspectUrl(tab.url);
-    if (result && result.is_phishing) {
+    if (result && result.is_phishing && result.action === "block") {
       chrome.action.setBadgeText({ text: "BLOCK", tabId: activeInfo.tabId });
       chrome.action.setBadgeBackgroundColor({ color: "#ef4444", tabId: activeInfo.tabId });
+    } else if (result && (result.action === "warn" || (result.trust_score !== undefined && result.trust_score < 80))) {
+      chrome.action.setBadgeText({ text: "WARN", tabId: activeInfo.tabId });
+      chrome.action.setBadgeBackgroundColor({ color: "#f59e0b", tabId: activeInfo.tabId });
     } else if (result) {
       chrome.action.setBadgeText({ text: "SAFE", tabId: activeInfo.tabId });
       chrome.action.setBadgeBackgroundColor({ color: "#10b981", tabId: activeInfo.tabId });

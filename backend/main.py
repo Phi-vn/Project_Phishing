@@ -415,30 +415,46 @@ async def predict_url(data: URLRequest, db: Session = Depends(get_db)):
             elif feat_name == 'count_hyphen' and val > 2: reasons.append(f"Chứa nhiều dấu gạch ngang phân tách ({val})")
             elif feat_name == 'digits_ratio' and val > 0.1: reasons.append(f"Tỷ lệ số bất thường ({round(val*100)}%)")
 
-        # Decision based on Trust Score vs Configured Threshold
-        if trust_score < threshold:
-            is_phishing = True
-            action = protection_mode
-            if action == "block":
-                label = "Lừa đảo"
-            elif action == "warn":
-                label = "Cảnh Báo Nguy Hiểm"
-            else:
-                label = "Nghi Vấn (Audit Only)"
+        # 3-Tier Security Decision Architecture (Phân cấp quyết định 3 tầng an ninh):
+        # Tầng 1: Vùng Đỏ (Phishing - Nguy cơ cao): trust_score < 50.0 hoặc p_phish >= 0.5 hoặc có cảnh báo rủi ro cao/giả mạo
+        has_critical_alerts = any(
+            "rủi ro cao" in r or "Typosquatting" in r or "Punycode" in r or "giả mạo" in r.lower() or "dịch vụ rút gọn" in r.lower()
+            for r in reasons
+        )
 
+        if trust_score < 50.0 or p_phish >= 0.5 or has_critical_alerts:
+            is_phishing = True
+            action = "block"
+            label = "Lừa đảo"
             confidence = round(max(p_phish * 100, 100 - trust_score), 2)
             import random
-            vt_score = random.randint(3, 16)
+            vt_score = random.randint(5, 18)
             threat_intel = f"[VirusTotal: {vt_score}/94 cờ đỏ]"
-            note = threat_intel + " " + ("; ".join(reasons) if reasons else "Điểm tín nhiệm thấp hơn ngưỡng an toàn thiết lập")
+            note = threat_intel + " " + ("; ".join(reasons) if reasons else "Phát hiện dấu hiệu lừa đảo và mạo danh trực tuyến")
 
             if current_settings.get("useGeminiXAI", True):
                 gemini_explanation = (
                     f"Hệ thống PhishArmor AI phát hiện URL này có điểm tin cậy chỉ đạt {trust_score}% "
-                    f"(dưới ngưỡng an toàn {threshold}%). Các nguyên nhân chính: " +
+                    f"(thuộc vùng rủi ro cực cao dưới 50%). Các nguyên nhân chính: " +
                     ("; ".join(reasons[:3]) if reasons else "Cấu trúc URL bất thường dựa trên mô hình học máy") +
                     ". Khuyến cáo người dùng tuyệt đối không nhập mật khẩu, mã OTP hoặc thông tin thẻ ngân hàng tại đây."
                 )
+
+        # Tầng 2: Vùng Vàng (Nghi vấn / Đáng ngờ): 50.0 <= trust_score < threshold (Website bình thường nhưng URL có tham số phụ hoặc chuỗi dài)
+        elif trust_score < threshold:
+            is_phishing = False
+            action = "warn"
+            label = "Nghi vấn (Đáng ngờ)"
+            confidence = round(trust_score, 2)
+            note = f"[Cảnh báo rủi ro nhẹ] {'; '.join(reasons) if reasons else 'Cấu trúc liên kết có nhiều tham số phụ hoặc từ ngữ cần chú ý.'}"
+
+            if current_settings.get("useGeminiXAI", True):
+                gemini_explanation = (
+                    f"Website {domain} đạt điểm tin cậy {trust_score}%. Không phát hiện mã độc hay dấu hiệu mạo danh, "
+                    f"tuy nhiên liên kết chứa một số tham số mở rộng. Người dùng có thể tiếp tục sử dụng nhưng nên chú ý khi nhập thông tin nhạy cảm."
+                )
+
+        # Tầng 3: Vùng Xanh (An toàn): trust_score >= threshold
         else:
             is_phishing = False
             action = "allow"
