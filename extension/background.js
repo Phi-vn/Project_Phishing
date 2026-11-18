@@ -1,7 +1,8 @@
 // PhishArmor AI - Background Service Worker (Manifest V3)
 // Lắng nghe sự kiện điều hướng thời gian thực: Tự động chặn khi người dùng click vào link lừa đảo
 
-const BACKEND_API = "http://127.0.0.1:8000/predict";
+importScripts("config.js");
+const BACKEND_API = `${PHISHARMOR_API_BASE}/predict`;
 
 // Cache tạm thời các domain đã kiểm tra để tối ưu tốc độ (tránh gọi API lặp lại trong 60s)
 const urlCache = new Map();
@@ -16,6 +17,11 @@ const IGNORED_HOSTS = [
   "chrome",
   "extensions",
   "newtab",
+  "ntp.msn.com",
+  "msn.com",
+  "bing.com",
+  "microsoft.com",
+  "live.com",
   "google.com",
   "google.com.vn",
   "claude.ai",
