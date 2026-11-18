@@ -47,3 +47,7 @@ Thumbs.db
 
 # Large runtime artifacts (Keep template / sample only if necessary)
 # ml-training/Data/*.csv (uncomment when using git LFS)
+tools/
+*.zip
+backend/phishing_model_old_backup.pkl
+deploy_huggingface/

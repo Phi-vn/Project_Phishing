@@ -1,0 +1,6 @@
+venv/
+__pycache__/
+*.pyc
+*.db
+phishing_model_old_backup.pkl
+settings.json

@@ -5,12 +5,19 @@ import datetime
 from urllib.parse import urlparse
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, Depends, WebSocket, WebSocketDisconnect, HTTPException, status, Query
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+import html
+import io
+import csv
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 import joblib
 from pydantic import BaseModel
-import shap
+try:
+    import shap
+except ImportError:
+    shap = None
 import numpy as np
 import jwt
 import models
@@ -74,7 +81,7 @@ async def websocket_endpoint(websocket: WebSocket):
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, 'phishing_model.pkl')
 model = joblib.load(MODEL_PATH)
-explainer = shap.TreeExplainer(model)
+explainer = shap.TreeExplainer(model) if shap is not None else None
 
 FEATURE_NAMES = [
     'length_url', 'length_domain', 'count_dot', 'count_hyphen',
@@ -84,11 +91,11 @@ FEATURE_NAMES = [
 ]
 
 # --- SYSTEM CONFIGURATION & SECURITY RULES PERSISTENCE ---
-SETTINGS_FILE = os.path.join(BASE_DIR, 'settings.json')
+SETTINGS_FILE = os.getenv("PHISHARMOR_SETTINGS_PATH", os.path.join(BASE_DIR, 'settings.json'))
 
 DEFAULT_SETTINGS = {
     # 1. Động Cơ & Ngưỡng Bảo Mật
-    "trustScore": 75,
+    "trustScore": 80,
     "protectionMode": "block",  # "block", "warn", "monitor"
     "blockRiskyTLD": True,
     "sslStrictInspection": True,
@@ -189,19 +196,24 @@ def extract_features(url_str):
     if ':' in domain:
         domain = domain.split(':')[0]
 
-    length_url = len(url)
+    # Chuẩn hóa bỏ tiền tố giao thức (http://, https://) trước khi tách đặc trưng học máy
+    # nhằm loại bỏ độ lệch thu thập HTTPS giữa tập sạch Kaggle và tập lừa đảo PhishTank.
+    # Giao thức scheme vẫn được giữ riêng cho Luật bảo mật 3 (kiểm tra SSL/TLS).
+    norm_url = re.sub(r'^https?://', '', url, flags=re.IGNORECASE)
+
+    length_url = len(norm_url)
     length_domain = len(domain)
-    count_dot = url.count('.')
-    count_hyphen = url.count('-')
-    count_at = url.count('@')
-    count_slash = url.count('/')
-    count_question = url.count('?')
-    count_equal = url.count('=')
+    count_dot = norm_url.count('.')
+    count_hyphen = norm_url.count('-')
+    count_at = norm_url.count('@')
+    count_slash = norm_url.count('/')
+    count_question = norm_url.count('?')
+    count_equal = norm_url.count('=')
     has_ip = 1 if re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', domain) else 0
     subdomain_count = len(domain.split('.')) - 2 if len(domain.split('.')) > 2 else 0
-    is_https = 1 if scheme == 'https' else 0
-    suspicious_count = sum(1 for word in SUSPICIOUS_WORDS if word in url.lower())
-    digits = sum(c.isdigit() for c in url)
+    is_https = 0  # Trung hòa khỏi quyết định học máy; kiểm tra SSL do Luật Heuristic 3 xử lý
+    suspicious_count = sum(1 for word in SUSPICIOUS_WORDS if word in norm_url.lower())
+    digits = sum(c.isdigit() for c in norm_url)
     digits_ratio = digits / length_url if length_url > 0 else 0
 
     return domain, [
@@ -334,7 +346,7 @@ async def predict_url(data: URLRequest, db: Session = Depends(get_db)):
             break
 
     protection_mode = current_settings.get("protectionMode", "block")
-    threshold = float(current_settings.get("trustScore", 75))
+    threshold = float(current_settings.get("trustScore", 80))
     gemini_explanation = ""
 
     if is_in_blacklist:
@@ -391,15 +403,18 @@ async def predict_url(data: URLRequest, db: Session = Depends(get_db)):
                 trust_score = max(10.0, trust_score - 25.0)
                 reasons.append("Dịch vụ rút gọn URL che giấu đích đến thực tế")
 
-        # SHAP Explainability
-        shap_values = explainer.shap_values(np.array([features]))
-        if isinstance(shap_values, list):
-            vals = shap_values[1][0] if prediction == 1 else shap_values[0][0]
-        else:
-            if len(shap_values.shape) == 3:
-                vals = shap_values[0, :, prediction]
+        # SHAP Explainability (với cơ chế dự phòng nhẹ RAM trên Cloud miễn phí)
+        if explainer is not None:
+            shap_values = explainer.shap_values(np.array([features]))
+            if isinstance(shap_values, list):
+                vals = shap_values[1][0] if prediction == 1 else shap_values[0][0]
             else:
-                vals = shap_values[0]
+                if len(shap_values.shape) == 3:
+                    vals = shap_values[0, :, prediction]
+                else:
+                    vals = shap_values[0]
+        else:
+            vals = getattr(model, "feature_importances_", np.ones(len(features)))
 
         top_indices = sorted(range(len(vals)), key=lambda i: abs(vals[i]), reverse=True)[:3]
         for i in top_indices:
@@ -703,6 +718,8 @@ class ActionFeedbackRequest(BaseModel):
     action: str
 
 def seed_default_feedback_if_empty(db: Session):
+    if os.getenv("PHISHARMOR_CLOUD_MODE", "0") == "1":
+        return
     count = db.query(models.FeedbackReport).count()
     if count == 0:
         seed_data = [
@@ -1182,3 +1199,165 @@ def get_metrics_evaluation(dataset: str = "PhishTank & PhishStats (n=3,000)", db
             "cache_hit": "86.4% Instant"
         }
     }
+
+
+# ==================== CLOUD ADMIN FEEDBACK PORTAL (24/7) ====================
+
+ADMIN_PORTAL_KEY = os.getenv("ADMIN_PORTAL_KEY", "phisharmor2026")
+
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session = Depends(get_db)):
+    if key != ADMIN_PORTAL_KEY:
+        return HTMLResponse(
+            """<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PhishArmor AI - Đăng nhập Admin</title>
+<style>
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;color:#0f172a}
+  .card{background:#fff;padding:28px 32px;border-radius:16px;box-shadow:0 10px 30px rgba(15,23,42,.08);width:100%;max-width:380px}
+  h1{font-size:20px;margin:0 0 8px;color:#0f172a}
+  p{font-size:13px;color:#64748b;margin:0 0 18px;line-height:1.5}
+  input{width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;margin-bottom:12px}
+  button{width:100%;padding:11px;border:none;border-radius:10px;background:#2563eb;color:#fff;font-size:14px;font-weight:700;cursor:pointer}
+  button:hover{background:#1d4ed8}
+  .hint{font-size:12px;color:#94a3b8;margin-top:12px;text-align:center}
+</style>
+</head>
+<body>
+  <form class="card" method="get" action="/admin">
+    <h1>🛡️ PhishArmor AI — Cổng Admin</h1>
+    <p>Nhập mật khẩu quản trị để xem danh sách lượt quét và nhận xét từ người dùng thử.</p>
+    <input type="password" name="key" placeholder="Nhập mật khẩu Admin..." required autofocus>
+    <button type="submit">Mở Bảng Theo Dõi</button>
+    <div class="hint">Mật khẩu mặc định: phisharmor2026</div>
+  </form>
+</body>
+</html>""",
+            status_code=200,
+        )
+
+    total_scans = db.query(models.ScanRecord).count()
+    phishing_scans = db.query(models.ScanRecord).filter(models.ScanRecord.is_phishing == True).count()
+    feedbacks = db.query(models.FeedbackReport).order_by(models.FeedbackReport.id.desc()).all()
+    recent_scans = db.query(models.ScanRecord).order_by(models.ScanRecord.id.desc()).limit(20).all()
+
+    type_labels = {
+        "user_review": ("Nhận xét dùng thử", "#059669", "#ecfdf5"),
+        "false_positive": ("Báo chặn nhầm", "#d97706", "#fffbeb"),
+        "false_negative": ("Báo bỏ sót lừa đảo", "#e11d48", "#fff1f2"),
+    }
+
+    fb_rows = []
+    for idx, fb in enumerate(feedbacks, 1):
+        label, color, bg = type_labels.get(fb.report_type or "", (fb.report_type or "Khác", "#475569", "#f1f5f9"))
+        ts = (fb.timestamp + datetime.timedelta(hours=7)).strftime("%d/%m/%Y %H:%M") if fb.timestamp else ""
+        fb_rows.append(
+            f"<tr>"
+            f"<td>{idx}</td>"
+            f"<td><strong>{html.escape(fb.reporter_user or 'Ẩn danh')}</strong><br><span class='muted'>{ts}</span></td>"
+            f"<td><span class='badge' style='color:{color};background:{bg}'>{html.escape(label)}</span></td>"
+            f"<td class='comment'>{html.escape(fb.user_comment or '')}</td>"
+            f"<td class='url'>{html.escape(fb.url or '')}</td>"
+            f"</tr>"
+        )
+
+    if not fb_rows:
+        fb_table_body = "<tr><td colspan='5' style='text-align:center;color:#64748b;padding:24px'>Chưa có nhận xét nào. Khi bạn bè bấm gửi phản hồi trong tiện ích, nội dung sẽ hiện ngay tại đây!</td></tr>"
+    else:
+        fb_table_body = "".join(fb_rows)
+
+    scan_rows = []
+    for s in recent_scans:
+        ts = (s.timestamp + datetime.timedelta(hours=7)).strftime("%d/%m %H:%M") if s.timestamp else ""
+        badge = "<span class='badge' style='color:#e11d48;background:#fff1f2'>Nguy hiểm</span>" if s.is_phishing else "<span class='badge' style='color:#059669;background:#ecfdf5'>An toàn</span>"
+        scan_rows.append(
+            f"<tr><td>{ts}</td><td>{badge}</td><td class='url'>{html.escape(s.url or '')}</td><td>{html.escape(s.label or '')}</td></tr>"
+        )
+    scan_table_body = "".join(scan_rows) if scan_rows else "<tr><td colspan='4' style='text-align:center;color:#64748b;padding:18px'>Chưa có lượt quét nào.</td></tr>"
+
+    safe_key = html.escape(key or "")
+    page_html = f"""<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PhishArmor AI — Admin Theo Dõi Dùng Thử 24/7</title>
+<style>
+  body{{font-family:'Segoe UI',system-ui,sans-serif;background:#f8fafc;color:#0f172a;margin:0;padding:20px}}
+  .wrap{{max-width:1100px;margin:0 auto}}
+  .topbar{{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px}}
+  h1{{font-size:22px;margin:0;color:#0f172a}}
+  .actions{{display:flex;gap:10px}}
+  .btn{{display:inline-block;padding:9px 15px;border-radius:10px;text-decoration:none;font-size:13px;font-weight:700}}
+  .btn-primary{{background:#2563eb;color:#fff}}
+  .btn-green{{background:#059669;color:#fff}}
+  .stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:22px}}
+  .stat{{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px}}
+  .stat-label{{font-size:12px;color:#64748b;font-weight:600;text-transform:uppercase}}
+  .stat-val{{font-size:28px;font-weight:800;margin-top:6px}}
+  .card{{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;margin-bottom:20px;overflow-x:auto}}
+  .card h2{{font-size:16px;margin:0 0 14px}}
+  table{{width:100%;border-collapse:collapse;font-size:13px}}
+  th,td{{text-align:left;padding:10px 12px;border-bottom:1px solid #f1f5f9;vertical-align:top}}
+  th{{background:#f8fafc;color:#475569;font-weight:700}}
+  .badge{{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}}
+  .muted{{font-size:11px;color:#94a3b8}}
+  .comment{{white-space:pre-wrap;min-width:260px;line-height:1.5}}
+  .url{{word-break:break-all;max-width:260px;color:#334155}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h1>🛡️ PhishArmor AI — Cổng Theo Dõi Dùng Thử (24/7)</h1>
+      <div class="actions">
+        <a class="btn btn-primary" href="/admin?key={safe_key}">🔄 Làm mới</a>
+        <a class="btn btn-green" href="/admin/export-csv?key={safe_key}">📥 Tải Excel (.CSV)</a>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Phản hồi / Nhận xét bạn bè</div><div class="stat-val" style="color:#059669">{len(feedbacks)}</div></div>
+      <div class="stat"><div class="stat-label">Tổng lượt quét URL</div><div class="stat-val" style="color:#2563eb">{total_scans}</div></div>
+      <div class="stat"><div class="stat-label">Trang lừa đảo đã chặn</div><div class="stat-val" style="color:#e11d48">{phishing_scans}</div></div>
+    </div>
+    <div class="card">
+      <h2>💬 Danh sách Phản hồi & Nhận xét từ Người dùng thử</h2>
+      <table>
+        <thead><tr><th>#</th><th>Người gửi & Thời gian</th><th>Loại</th><th>Nội dung nhận xét / đánh giá</th><th>URL đang mở</th></tr></thead>
+        <tbody>{fb_table_body}</tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>🔍 20 lượt quét gần nhất</h2>
+      <table>
+        <thead><tr><th>Thời gian (VN)</th><th>Kết quả</th><th>URL</th><th>Phân loại</th></tr></thead>
+        <tbody>{scan_table_body}</tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>"""
+    return HTMLResponse(page_html)
+
+
+@app.get("/admin/export-csv")
+def export_feedback_csv(key: Optional[str] = Query(default=None), db: Session = Depends(get_db)):
+    if key != ADMIN_PORTAL_KEY:
+        raise HTTPException(status_code=403, detail="Sai mật khẩu Admin")
+    feedbacks = db.query(models.FeedbackReport).order_by(models.FeedbackReport.id.desc()).all()
+    buf = io.StringIO()
+    buf.write("\ufeff")
+    writer = csv.writer(buf)
+    writer.writerow(["STT", "MaBaoCao", "ThoiGianVN", "NguoiGui", "LoaiPhanHoi", "NoiDungNhanXet", "URL"])
+    for idx, fb in enumerate(feedbacks, 1):
+        ts = (fb.timestamp + datetime.timedelta(hours=7)).strftime("%Y-%m-%d %H:%M:%S") if fb.timestamp else ""
+        writer.writerow([idx, fb.report_code, ts, fb.reporter_user, fb.report_type, fb.user_comment, fb.url])
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="PhishArmor_NhanXet_NguoiDungThu.csv"'},
+    )
+

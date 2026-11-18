@@ -1,16 +1,19 @@
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-cloud.txt .
+RUN pip install --no-cache-dir -r requirements-cloud.txt
 
-# Copy the rest of the application
-COPY . .
+COPY main.py models.py database.py phishing_model.pkl ./
 
-# Expose port
+RUN mkdir -p /app/data && chmod -R 777 /app/data
+
+ENV PHISHARMOR_CLOUD_MODE=1
+ENV PHISHARMOR_DB_PATH=/app/data/phisharmor.db
+ENV PHISHARMOR_SETTINGS_PATH=/app/data/settings.json
+ENV ADMIN_PORTAL_KEY=phisharmor2026
+
 EXPOSE 8000
 
-# Start FastAPI
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
