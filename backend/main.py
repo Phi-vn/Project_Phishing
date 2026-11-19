@@ -1532,12 +1532,12 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
 
         fb_rows.append(
             f"<tr>"
-            f"<td>{idx}</td>"
+            f"<td style='text-align:center'>{idx}</td>"
             f"<td><strong>{html.escape(fb.reporter_user or 'Ẩn danh')}</strong><br><span class='muted'>{ts}</span></td>"
-            f"<td>{star_badge}</td>"
-            f"<td>{type_badge}</td>"
+            f"<td style='text-align:center'>{star_badge}</td>"
+            f"<td style='text-align:center'>{type_badge}</td>"
             f"<td class='comment'>{html.escape(clean_cmt or 'Không có ghi chú thêm.')}</td>"
-            f"<td class='url'><strong>{html.escape(site_display)}</strong><br>{site_badge}</td>"
+            f"<td class='url'>{html.escape(site_display)}<br>{site_badge}</td>"
             f"</tr>"
         )
 
@@ -1560,15 +1560,15 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
             # Nguy cơ 77% -> Điểm an toàn 23/100
             trust_score = max(1, min(45, 100 - raw_conf))
             badge = "<span class='badge' style='color:#e11d48;background:#fff1f2'>🚨 Nguy hiểm</span>"
-            score_badge = f"<span style='color:#e11d48;font-weight:800;font-size:13px'>{trust_score}/100</span>"
+            score_badge = f"<span style='color:#e11d48;font-weight:600;font-size:13px'>{trust_score}/100</span>"
         elif is_warn:
             trust_score = raw_conf
             badge = "<span class='badge' style='color:#d97706;background:#fffbeb'>⚠️ Nghi vấn</span>"
-            score_badge = f"<span style='color:#d97706;font-weight:800;font-size:13px'>{trust_score}/100</span>"
+            score_badge = f"<span style='color:#d97706;font-weight:600;font-size:13px'>{trust_score}/100</span>"
         else:
             trust_score = min(100, max(80, raw_conf))
             badge = "<span class='badge' style='color:#059669;background:#ecfdf5'>✓ An toàn</span>"
-            score_badge = f"<span style='color:#059669;font-weight:800;font-size:13px'>{trust_score}/100</span>"
+            score_badge = f"<span style='color:#059669;font-weight:600;font-size:13px'>{trust_score}/100</span>"
 
         # Phân loại căn cứ chi tiết
         note_str = s.note or (s.label or "Đã phân tích bởi AI")
@@ -1584,10 +1584,10 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
 
         scan_rows.append(
             f"<tr>"
-            f"<td>{ts}</td>"
-            f"<td>{badge}</td>"
+            f"<td style='text-align:center'>{ts}</td>"
+            f"<td style='text-align:center'>{badge}</td>"
             f"<td style='text-align:center'>{score_badge}</td>"
-            f"<td class='url'><strong>{html.escape(s.url or '')}</strong></td>"
+            f"<td class='url'>{html.escape(s.url or '')}</td>"
             f"<td>{reason_badge}</td>"
             f"</tr>"
         )
@@ -1615,8 +1615,9 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
   .card{{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;margin-bottom:20px;overflow-x:auto}}
   .card h2{{font-size:16px;margin:0 0 14px}}
   table{{width:100%;border-collapse:collapse;font-size:13px}}
-  th,td{{text-align:left;padding:10px 12px;border-bottom:1px solid #f1f5f9;vertical-align:top}}
-  th{{background:#f8fafc;color:#475569;font-weight:700}}
+  th,td{{padding:10px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle}}
+  th{{background:#f8fafc;color:#475569;font-weight:700;text-align:center}}
+  td{{text-align:left}}
   .badge{{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}}
   .muted{{font-size:11px;color:#94a3b8}}
   .comment{{white-space:pre-wrap;min-width:260px;line-height:1.5}}
@@ -1660,7 +1661,7 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
           <tr>
             <th style="width:110px">Thời gian (VN)</th>
             <th style="width:125px">Đánh giá AI</th>
-            <th style="width:120px;text-align:center">Điểm an toàn</th>
+            <th style="width:120px">Điểm an toàn</th>
             <th>Địa chỉ URL kiểm tra</th>
             <th style="width:280px">Căn cứ & Phân loại AI</th>
           </tr>
