@@ -58,7 +58,8 @@ document.addEventListener("DOMContentLoaded", () => {
         reportBtn.innerText = "Đang gửi báo cáo...";
 
         try {
-          await fetch("http://127.0.0.1:8000/api/feedback", {
+          const apiBase = (typeof PHISHARMOR_API_BASE !== "undefined") ? PHISHARMOR_API_BASE : "http://127.0.0.1:8000";
+          await fetch(`${apiBase}/api/feedback`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -85,7 +86,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (bypassBtn) {
       bypassBtn.addEventListener("click", () => {
         if (rawUrl) {
-          if (confirm("⚠️ CẢNH BÁO NGUY HIỂM:\nTrang web này có dấu hiệu lừa đảo và đánh cắp thông tin tài khoản.\nBạn có chắc chắn muốn bỏ qua cảnh báo và tiếp tục truy cập không?")) {
+          const disclaimer = 
+            "⚠️ XÁC NHẬN VƯỢT RÀO CẢNH BÁO & MIỄN TRỪ TRÁCH NHIỆM:\n\n" +
+            "Trang web này đã bị hệ thống PhishArmor AI nhận diện có nguy cơ LỪA ĐẢO NGUY HIỂM.\n\n" +
+            "Nếu bạn vẫn quyết định tiếp tục truy cập (Bypass):\n" +
+            "1. Thao tác này hoàn toàn nằm ngoài khuyến nghị bảo mật và nghiệp vụ bảo vệ an toàn của hệ thống.\n" +
+            "2. Bạn đồng ý tự chịu 100% rủi ro về rò rỉ thông tin cá nhân, tài khoản ngân hàng hoặc thất thoát dữ liệu.\n" +
+            "3. Đội ngũ phát triển và hệ thống PhishArmor hoàn toàn KHÔNG CHỊU TRÁCH NHIỆM pháp lý hoặc bồi thường thiệt hại đối với các rủi ro phát sinh.\n\n" +
+            "Bạn có chắc chắn muốn bỏ qua cảnh báo và tiếp tục truy cập không?";
+
+          if (confirm(disclaimer)) {
             try {
               chrome.runtime.sendMessage({ action: "bypass_url", url: rawUrl }, () => {
                 window.location.href = rawUrl;
@@ -106,6 +116,27 @@ function updateDynamicXAI(targetUrl) {
   const lower = targetUrl.toLowerCase();
   const xaiContentEl = document.getElementById("xai-content");
   if (!xaiContentEl) return;
+
+  // 0. Kịch bản Tấn công ký tự đồng hình (IDN Homograph / Font chữ nhái Punycode xn--, Cyrillic, Greek)
+  if (lower.includes("xn--") || /[а-яА-ЯёЁ\u0400-\u04FF\u0370-\u03FF]/.test(lower) || lower.includes("homograph")) {
+    xaiContentEl.innerHTML = `
+      <div class="xai-item">
+        <span>🔤</span>
+        <div>
+          <strong>Tấn công ký tự đồng hình (IDN Homograph / Font nhái)</strong>
+          <span>Kẻ tấn công cố tình dùng chữ cái ngoại ngữ (Cyrillic/Punycode) có hình dáng giống hệt chữ Latinh để đánh lừa mắt thường.</span>
+        </div>
+      </div>
+      <div class="xai-item">
+        <span>🛡️</span>
+        <div>
+          <strong>Mạo danh thương hiệu uy tín</strong>
+          <span>Địa chỉ URL hiển thị giống trang web thật nhưng máy chủ thực tế trỏ tới hạ tầng độc hại.</span>
+        </div>
+      </div>
+    `;
+    return;
+  }
 
   // 1. Kịch bản Mạng xã hội (Facebook, Zalo, TikTok, Meta...)
   if (lower.includes("facebook") || lower.includes("fb") || lower.includes("zalo") || lower.includes("gift") || lower.includes("free")) {

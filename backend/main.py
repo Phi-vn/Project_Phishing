@@ -198,8 +198,129 @@ RISKY_TLDS = {
     ".click", ".top", ".xyz", ".cc", ".icu", ".gq", ".tk", ".ml", ".ga", ".cf",
     ".rest", ".work", ".fit", ".buzz", ".monster", ".info", ".sbs", ".cam", ".store", ".online"
 }
+import unicodedata
+
 CYRILLIC_CHARS = set("абвгдежзийклмнопрстуфхцчшщъыьэюяАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ")
 SHORTENER_DOMAINS = {"bit.ly", "tinyurl.com", "t.co", "is.gd", "buff.ly", "ow.ly", "cutt.ly", "rb.gy"}
+
+HOMOGLYPH_MAP = {
+    # Cyrillic lowercase to Latin lookalikes
+    'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'ѕ': 's', 'х': 'x', 'у': 'y',
+    'і': 'i', 'ј': 'j', 'в': 'b', 'н': 'h', 'м': 'm', 'т': 't', 'к': 'k', 'ԁ': 'd',
+    'ԛ': 'q', 'ԝ': 'w',
+    # Cyrillic uppercase
+    'А': 'a', 'В': 'b', 'С': 'c', 'Е': 'e', 'Н': 'h', 'І': 'i', 'Ј': 'j', 'К': 'k',
+    'М': 'm', 'О': 'o', 'Р': 'p', 'Ѕ': 's', 'Т': 't', 'Х': 'x', 'Ү': 'y',
+    # Greek lowercase
+    'α': 'a', 'ο': 'o', 'ν': 'v', 'ρ': 'p', 'ι': 'i', 'κ': 'k', 'τ': 't', 'ε': 'e',
+    # Leetspeak lookalikes
+    '0': 'o', '1': 'l', '3': 'e', '4': 'a', '5': 's', '8': 'b',
+}
+
+PROTECTED_BRANDS = {
+    "google": ["google.com", "google.com.vn"],
+    "facebook": ["facebook.com", "fb.com", "messenger.com"],
+    "meta": ["meta.com"],
+    "apple": ["apple.com", "icloud.com"],
+    "microsoft": ["microsoft.com", "live.com", "office.com", "bing.com", "msn.com"],
+    "netflix": ["netflix.com"],
+    "paypal": ["paypal.com"],
+    "amazon": ["amazon.com"],
+    "telegram": ["telegram.org", "t.me"],
+    "zalo": ["zalo.me"],
+    "vietcombank": ["vietcombank.com.vn"],
+    "mbbank": ["mbbank.com.vn"],
+    "techcombank": ["techcombank.com.vn", "techcombank.com"],
+    "bidv": ["bidv.com.vn"],
+    "acb": ["acb.com.vn"],
+    "vpbank": ["vpbank.com.vn"],
+    "tpbank": ["tpb.vn", "tpbank.com.vn"],
+    "agribank": ["agribank.com.vn"],
+    "momo": ["momo.vn"],
+    "vnpay": ["vnpay.vn"],
+    "shopee": ["shopee.vn", "shopee.com"],
+    "tiki": ["tiki.vn"],
+    "lazada": ["lazada.vn"],
+    "vneid": ["vneid.gov.vn", "dichvucong.gov.vn"],
+    "dichvucong": ["dichvucong.gov.vn", "chinhphu.vn"],
+    "evn": ["evn.com.vn"]
+}
+
+def analyze_domain_spoofing(domain: str, raw_url: str):
+    clean = domain.split(':')[0].lower()
+    
+    # Check Punycode decode (xn--)
+    has_punycode = clean.startswith("xn--") or ".xn--" in clean
+    decoded_domain = clean
+    if has_punycode:
+        try:
+            parts = clean.split('.')
+            decoded_parts = [
+                p.encode('ascii').decode('idna') if p.startswith('xn--') else p
+                for p in parts
+            ]
+            decoded_domain = ".".join(decoded_parts)
+        except Exception:
+            decoded_domain = clean
+
+    # Kiểm tra ký tự ngoài bảng mã ASCII (Cyrillic, Greek, font lạ...)
+    has_non_ascii = any(ord(c) > 127 for c in decoded_domain)
+
+    # Chuẩn hóa Unicode NFKD để bóc tách font chữ lạ / fullwidth
+    nfkd_form = unicodedata.normalize('NFKD', decoded_domain)
+
+    canonical_chars = []
+    used_homoglyphs = False
+    used_leetspeak = False
+    
+    for ch in nfkd_form:
+        if ch in HOMOGLYPH_MAP:
+            canonical_chars.append(HOMOGLYPH_MAP[ch])
+            if ord(ch) > 127:
+                used_homoglyphs = True
+            elif ch.isdigit():
+                used_leetspeak = True
+        else:
+            canonical_chars.append(ch)
+
+    canonical_str = "".join(canonical_chars)
+
+    for brand, authentic_domains in PROTECTED_BRANDS.items():
+        is_authentic = any(clean == auth or clean.endswith("." + auth) for auth in authentic_domains)
+        if is_authentic:
+            continue
+
+        # 1. Tấn công ký tự đồng hình (IDN Homograph / Font chữ nhái Cyrillic, Greek, Punycode)
+        if (has_punycode or has_non_ascii or used_homoglyphs) and (brand in canonical_str):
+            return {
+                "is_spoof": True,
+                "type": "homograph",
+                "brand": brand.upper(),
+                "reason": f"Phát hiện tấn công ký tự đồng hình (IDN Homograph / Font chữ nhái) giả mạo thương hiệu '{brand.upper()}'"
+            }
+
+        # 2. Tấn công Leetspeak Typosquatting (Thay số nhái chữ: vietc0mbank, g00gle, mbb4nk...)
+        if used_leetspeak and (brand in canonical_str) and (brand not in clean):
+            return {
+                "is_spoof": True,
+                "type": "leetspeak",
+                "brand": brand.upper(),
+                "reason": f"Phát hiện nhái thương hiệu bằng thay thế chữ số (Leetspeak Typosquatting) giả mạo '{brand.upper()}'"
+            }
+
+        # 3. Kết hợp tên thương hiệu không chính chủ với từ khóa lừa đảo nhạy cảm
+        if brand in clean:
+            sensitive_words = ["login", "otp", "verify", "secure", "bank", "auth", "voucher", "gift", "xacthuc", "khuyenmai", "quatang", "sms", "cskh"]
+            full_check = (clean + " " + raw_url.lower())
+            if any(w in full_check for w in sensitive_words):
+                return {
+                    "is_spoof": True,
+                    "type": "brand_combo",
+                    "brand": brand.upper(),
+                    "reason": f"Tên miền không chính chủ kết hợp thương hiệu '{brand.upper()}' với từ khóa lừa đảo nhạy cảm"
+                }
+
+    return None
 
 SUSPICIOUS_WORDS = [
     'login', 'verify', 'update', 'banking', 'account',
@@ -334,9 +455,67 @@ def health_check():
 @app.post("/api/scan")
 async def predict_url(data: URLRequest, db: Session = Depends(get_db)):
     url = str(data.url).strip()
+    lower_url = url.lower()
+
+    # Nhận diện và bỏ qua các trang quản lý nội bộ của trình duyệt (chrome://, edge://, ...)
+    if (
+        lower_url.startswith(("chrome://", "edge://", "about:", "file://", "chrome-extension://", "devtools://", "view-source:"))
+        or lower_url in ("extensions", "newtab", "settings", "history")
+        or not (lower_url.startswith("http://") or lower_url.startswith("https://"))
+    ):
+        return {
+            "id": 0,
+            "url": url,
+            "domain": "browser-internal",
+            "is_phishing": False,
+            "label": "Trang hệ thống nội bộ",
+            "confidence": 99.9,
+            "trust_score": 100.0,
+            "action": "allow",
+            "protection_mode": "allow",
+            "threshold_applied": float(current_settings.get("trustScore", 80)),
+            "model_used": "browser_internal_rule",
+            "features": {},
+            "note": "Trang hệ thống nội bộ của trình duyệt, an toàn tuyệt đối.",
+            "gemini_xai": "Trang cài đặt / hệ thống nội bộ của trình duyệt (chrome://, edge://), không phải website internet bên ngoài.",
+            "gemini_explanation": "Trang cài đặt / hệ thống nội bộ của trình duyệt (chrome://, edge://), không phải website internet bên ngoài.",
+            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+            "cached": True
+        }
 
     domain, features, scheme = extract_features(url)
     domain_clean = domain.replace('www.', '').lower()
+
+    # Nhận diện địa chỉ máy chủ cục bộ (Localhost / Private IP LAN: 127.0.0.1, localhost, 192.168.x.x, 10.x.x.x, ...)
+    clean_host = domain_clean.split(':')[0]
+    is_local_host = (
+        clean_host in ("localhost", "127.0.0.1", "0.0.0.0", "::1")
+        or clean_host.endswith(".localhost")
+        or clean_host.endswith(".local")
+        or clean_host.startswith("192.168.")
+        or clean_host.startswith("10.")
+        or any(clean_host.startswith(f"172.{i}.") for i in range(16, 32))
+    )
+    if is_local_host:
+        return {
+            "id": 0,
+            "url": url,
+            "domain": clean_host,
+            "is_phishing": False,
+            "label": "Môi trường nội bộ (Localhost / LAN)",
+            "confidence": 99.9,
+            "trust_score": 100.0,
+            "action": "allow",
+            "protection_mode": "allow",
+            "threshold_applied": float(current_settings.get("trustScore", 80)),
+            "model_used": "localhost_safeguard",
+            "features": {},
+            "note": "Địa chỉ máy chủ cục bộ (Localhost/LAN) chạy trên thiết bị cá nhân, an toàn tuyệt đối.",
+            "gemini_xai": "Đây là dịch vụ phát triển cục bộ (Localhost hoặc IP mạng nội bộ LAN), không phải website internet công cộng.",
+            "gemini_explanation": "Đây là dịch vụ phát triển cục bộ (Localhost hoặc IP mạng nội bộ LAN), không phải website internet công cộng.",
+            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+            "cached": True
+        }
 
     # 0. Check Inference Cache
     if current_settings.get("inferenceCache", True) and url in INFERENCE_CACHE:
@@ -411,31 +590,39 @@ async def predict_url(data: URLRequest, db: Session = Depends(get_db)):
 
         reasons = []
 
-        # Deep Security Policy 1: Punycode / IDN Homograph Defense
-        if current_settings.get("punycodeDefense", True):
-            has_puny = domain.startswith("xn--") or any(ch in CYRILLIC_CHARS for ch in domain)
-            if has_puny:
-                trust_score = min(trust_score, 10.0)
-                reasons.append("Phát hiện ký tự đồng hình (IDN Homograph/Punycode) giả mạo thương hiệu")
+        # Deep Security Policy 1: Advanced Homograph & Brand Spoofing Detection
+        # Phát hiện ký tự đồng hình (Cyrillic, Greek, Punycode xn--), Leetspeak nhái chữ số, Brand Combos
+        spoof_info = analyze_domain_spoofing(domain_clean, url)
+        is_critical_spoof = False
+        if spoof_info:
+            is_critical_spoof = True
+            trust_score = 5.0
+            reasons.append(spoof_info["reason"])
 
-        # Deep Security Policy 2: High-risk TLD Blocking
+        # Deep Security Policy 2: Phân loại rủi ro TLD linh hoạt (Không chặn oan)
+        # Chỉ trừ điểm nặng nếu TLD giá rẻ kết hợp với từ khóa lừa đảo hoặc nhái thương hiệu
         if current_settings.get("blockRiskyTLD", True):
-            matched_tld = next((tld for tld in RISKY_TLDS if domain.endswith(tld)), None)
+            matched_tld = next((tld for tld in RISKY_TLDS if domain_clean.endswith(tld)), None)
             if matched_tld:
-                trust_score = max(5.0, trust_score - 35.0)
-                reasons.append(f"Tên miền sử dụng phần mở rộng rủi ro cao ({matched_tld}) thường dùng trong các chiến dịch lừa đảo")
+                has_sens_word = any(w in norm_url.lower() for w in SUSPICIOUS_WORDS)
+                if has_sens_word or is_critical_spoof:
+                    trust_score = max(5.0, trust_score - 25.0)
+                    reasons.append(f"Tên miền sử dụng đuôi mở rộng rủi ro cao ({matched_tld}) kết hợp từ khóa nhạy cảm")
+                else:
+                    trust_score = max(50.0, trust_score - 8.0)
+                    reasons.append(f"Tên miền sử dụng phần mở rộng phổ thông ({matched_tld})")
 
         # Deep Security Policy 3: SSL/TLS Strict Inspection
         if current_settings.get("sslStrictInspection", True):
             if scheme != "https":
-                trust_score = max(5.0, trust_score - 20.0)
+                trust_score = max(5.0, trust_score - 15.0)
                 reasons.append("Thiếu mã hóa SSL/TLS an toàn (truy cập HTTP không bảo mật)")
 
-        # Deep Security Policy 4: Unshorten URL Check
+        # Deep Security Policy 4: Unshorten URL Check (Cảnh báo chú ý thay vì chặn cứng)
         if current_settings.get("inspectShortenedUrls", True):
-            if domain in SHORTENER_DOMAINS:
-                trust_score = max(10.0, trust_score - 25.0)
-                reasons.append("Dịch vụ rút gọn URL che giấu đích đến thực tế")
+            if domain_clean in SHORTENER_DOMAINS:
+                trust_score = min(trust_score, 65.0)
+                reasons.append("Liên kết rút gọn che giấu địa chỉ đích thực tế (Cần chú ý kiểm tra)")
 
         # SHAP Explainability (với cơ chế dự phòng nhẹ RAM trên Cloud miễn phí)
         if explainer is not None:
@@ -454,24 +641,26 @@ async def predict_url(data: URLRequest, db: Session = Depends(get_db)):
         for i in top_indices:
             feat_name = FEATURE_NAMES[i]
             val = features[i]
-            if feat_name == 'length_url' and val > 75: reasons.append(f"URL quá dài ({val} ký tự)")
+            if feat_name == 'length_url' and val > 90: reasons.append(f"URL quá dài ({val} ký tự)")
             elif feat_name == 'is_https' and val == 0:
                 if not any("SSL" in r for r in reasons):
                     reasons.append("Thiếu mã hóa HTTPS")
             elif feat_name == 'has_ip' and val == 1: reasons.append("Dùng IP thay vì tên miền hợp pháp")
             elif feat_name == 'suspicious_count' and val > 0: reasons.append(f"Chứa {val} từ khóa nhạy cảm thường gặp trong phishing")
             elif feat_name == 'subdomain_count' and val > 2: reasons.append(f"Chứa nhiều cấp subdomain phụ ({val})")
-            elif feat_name == 'count_hyphen' and val > 2: reasons.append(f"Chứa nhiều dấu gạch ngang phân tách ({val})")
-            elif feat_name == 'digits_ratio' and val > 0.1: reasons.append(f"Tỷ lệ số bất thường ({round(val*100)}%)")
+            elif feat_name == 'count_hyphen' and val > 3: reasons.append(f"Chứa nhiều dấu gạch ngang phân tách ({val})")
+            elif feat_name == 'digits_ratio' and val > 0.35 and len(norm_url) > 25:
+                # Chỉ cảnh báo khi tỷ lệ số trên 35% VÀ URL dài trên 25 ký tự (tránh chặn oan web1, 24h, vtv1, mp3...)
+                reasons.append(f"Tỷ lệ số cao bất thường ({round(val*100)}%)")
 
         # 3-Tier Security Decision Architecture (Phân cấp quyết định 3 tầng an ninh):
-        # Tầng 1: Vùng Đỏ (Phishing - Nguy cơ cao): trust_score < 50.0 hoặc p_phish >= 0.5 hoặc có cảnh báo rủi ro cao/giả mạo
-        has_critical_alerts = any(
-            "rủi ro cao" in r or "Typosquatting" in r or "Punycode" in r or "giả mạo" in r.lower() or "dịch vụ rút gọn" in r.lower()
-            for r in reasons
-        )
+        # Tầng 1: Vùng Đỏ (Phishing - Chặn cứng):
+        # - Bắt quả tang giả mạo thương hiệu (IDN Homograph/Font chữ nhái/Leetspeak/Combo lừa đảo)
+        # - Hoặc mô hình AI kết luận lừa đảo với độ tin cậy cao (p_phish >= 0.65)
+        # - Hoặc điểm an toàn rớt sâu dưới 45.0
+        is_red_threat = is_critical_spoof or (trust_score < 45.0) or (p_phish >= 0.65)
 
-        if trust_score < 50.0 or p_phish >= 0.5 or has_critical_alerts:
+        if is_red_threat:
             is_phishing = True
             action = "block"
             label = "Lừa đảo"
@@ -1394,4 +1583,283 @@ def export_feedback_csv(key: Optional[str] = Query(default=None), db: Session = 
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="PhishArmor_NhanXet_NguoiDungThu.csv"'},
     )
+
+
+# ==================== PUBLIC WEB TESTER & SURVEY PORTAL (24/7) ====================
+
+@app.get("/tester", response_class=HTMLResponse)
+@app.get("/demo", response_class=HTMLResponse)
+def web_tester_portal():
+    html_content = """<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PhishArmor AI — Cổng Trải Nghiệm & Khảo Sát Dùng Thử Trực Tuyến</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --safe: #059669;
+    --safe-bg: #ecfdf5;
+    --danger: #e11d48;
+    --danger-bg: #fff1f2;
+    --warn: #d97706;
+    --warn-bg: #fffbeb;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text: #0f172a;
+    --muted: #64748b;
+  }
+  *{box-sizing:border-box}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:20px 14px;line-height:1.5}
+  .container{max-width:820px;margin:0 auto}
+  .header{text-align:center;margin-bottom:24px}
+  .header h1{font-size:24px;margin:0 0 6px;color:#1e293b;display:flex;align-items:center;justify-content:center;gap:8px}
+  .header p{font-size:13px;color:var(--muted);margin:0}
+  .badge-live{display:inline-flex;align-items:center;gap:5px;background:#ecfdf5;color:#047857;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-top:8px}
+  .card{background:var(--card);border:1px solid #e2e8f0;border-radius:18px;padding:22px;margin-bottom:20px;box-shadow:0 2px 10px rgba(15,23,42,.03)}
+  .card-title{font-size:16px;font-weight:800;margin:0 0 14px;display:flex;align-items:center;gap:8px;color:#1e293b}
+  .input-group{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .url-input{flex:1;min-width:240px;padding:12px 14px;border:1.5px solid #cbd5e1;border-radius:12px;font-size:14px;outline:none;transition:border-color .2s}
+  .url-input:focus{border-color:var(--primary)}
+  .btn{padding:12px 20px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:all .2s}
+  .btn-primary{background:var(--primary);color:#fff}
+  .btn-primary:hover{background:var(--primary-dark)}
+  .btn-sample{background:#f1f5f9;color:#334155;font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid #e2e8f0}
+  .btn-sample:hover{background:#e2e8f0}
+  .samples-label{font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600}
+  .samples-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+  .result-box{display:none;padding:18px;border-radius:14px;margin-top:14px}
+  .result-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .score-badge{font-size:22px;font-weight:900;display:flex;align-items:center;gap:8px}
+  .status-pill{padding:4px 12px;border-radius:999px;font-size:12px;font-weight:800;text-transform:uppercase}
+  .diag-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-top:12px}
+  .diag-card{background:rgba(255,255,255,.7);border:1px solid rgba(0,0,0,.06);padding:10px 12px;border-radius:10px;font-size:12px}
+  .diag-name{color:var(--muted);font-weight:600;display:block;margin-bottom:2px}
+  .diag-val{font-weight:700}
+  .explain-text{margin-top:12px;font-size:13px;line-height:1.6;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.85)}
+  /* Form Survey */
+  .form-group{margin-bottom:14px}
+  .form-label{display:block;font-size:13px;font-weight:700;margin-bottom:5px;color:#334155}
+  .form-input,.form-select,.form-textarea{width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:14px;box-sizing:border-box}
+  .form-textarea{min-height:90px;resize:vertical}
+  .form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--primary);outline:none}
+  .status-msg{margin-top:10px;padding:10px;border-radius:10px;font-size:13px;display:none}
+  .footer{text-align:center;font-size:12px;color:var(--muted);margin-top:30px}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🛡️ PhishArmor AI</h1>
+    <p>Cổng Trải Nghiệm & Khảo Sát Dùng Thử Trực Tuyến 24/7 (Đồ án tốt nghiệp CNTT)</p>
+    <div class="badge-live">● Hệ thống Cloud AI đang hoạt động 24/7</div>
+  </div>
+
+  <!-- Phần 1: Trải nghiệm quét URL -->
+  <div class="card">
+    <div class="card-title">🔍 Thử Nghiệm Quét & Phân Tích An Toàn Website Bằng AI</div>
+    <div class="samples-label">Bấm thử nhanh 4 kịch bản mẫu hoặc tự nhập đường dẫn bất kỳ:</div>
+    <div class="samples-row">
+      <button class="btn btn-sample" onclick="setSample('https://vnexpress.net')">🟢 Báo chí an toàn (VnExpress)</button>
+      <button class="btn btn-sample" onclick="setSample('http://auth-mbbank-login-verify.top/otp')">🔴 Giả mạo ngân hàng (MB Bank)</button>
+      <button class="btn btn-sample" onclick="setSample('https://gооgle.com')">🔤 Font chữ nhái (IDN Homograph)</button>
+      <button class="btn btn-sample" onclick="setSample('https://bit.ly/3xPhishTest')">🟡 Link rút gọn (Bit.ly)</button>
+    </div>
+
+    <div class="input-group">
+      <input id="url-input" class="url-input" type="text" placeholder="Nhập đường link cần kiểm tra (ví dụ: https://...)" value="https://vnexpress.net">
+      <button id="btn-scan" class="btn btn-primary" onclick="scanUrl()">⚡ Quét Bằng AI</button>
+    </div>
+
+    <div id="result-box" class="result-box">
+      <div class="result-header">
+        <div id="res-score" class="score-badge">--</div>
+        <div id="res-badge" class="status-pill">--</div>
+      </div>
+      <div id="res-explain" class="explain-text">--</div>
+      <div class="diag-grid">
+        <div class="diag-card"><span class="diag-name">Cấu trúc đường dẫn (Lexical):</span><span id="diag-lexical" class="diag-val">--</span></div>
+        <div class="diag-card"><span class="diag-name">Nhái thương hiệu (Typosquatting/Homograph):</span><span id="diag-brand" class="diag-val">--</span></div>
+        <div class="diag-card"><span class="diag-name">Chứng chỉ mã hóa SSL/TLS:</span><span id="diag-ssl" class="diag-val">--</span></div>
+        <div class="diag-card"><span class="diag-name">Thời gian phản hồi AI:</span><span id="diag-latency" class="diag-val">--</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phần 2: Khảo sát & Đánh giá người dùng thử -->
+  <div class="card">
+    <div class="card-title">💬 Khảo Sát & Nhận Xét Của Người Dùng Thử</div>
+    <p style="font-size:13px;color:var(--muted);margin-top:-6px;margin-bottom:14px">
+      Nhận xét của bạn sẽ tự động gửi thẳng về Bảng Điều Khiển Quản Trị (Admin SOC) của đồ án tốt nghiệp.
+    </p>
+
+    <div class="form-group">
+      <label class="form-label" for="fb-name">Tên hoặc Email của bạn:</label>
+      <input id="fb-name" class="form-input" type="text" placeholder="Ví dụ: Nguyễn Văn A hoặc an@gmail.com">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="fb-rating">Mức độ hài lòng chung (1 đến 5 sao):</label>
+      <select id="fb-rating" class="form-select">
+        <option value="5">⭐⭐⭐⭐⭐ (5/5) - Rất tốt, phân tích nhanh và cảnh báo dễ hiểu</option>
+        <option value="4">⭐⭐⭐⭐ (4/5) - Tốt, đáp ứng tốt nhu cầu phòng chống lừa đảo</option>
+        <option value="3">⭐⭐⭐ (3/5) - Bình thường, cần cải thiện thêm</option>
+        <option value="2">⭐⭐ (2/5) - Chưa hài lòng</option>
+        <option value="1">⭐ (1/5) - Kém</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="fb-comment">Nội dung nhận xét / Cảm nhận trải nghiệm:</label>
+      <textarea id="fb-comment" class="form-textarea" placeholder="Nhập cảm nhận của bạn về: tốc độ quét, độ chính xác khi phát hiện web giả mạo/font nhái, giao diện và đề xuất cải tiến..."></textarea>
+    </div>
+
+    <button id="btn-submit-fb" class="btn btn-primary" style="width:100%" onclick="submitFeedback()">🚀 Gửi Ngay Cho Admin</button>
+    <div id="fb-status" class="status-msg"></div>
+  </div>
+
+  <div class="footer">
+    Hệ thống PhishArmor AI • Đồ án tốt nghiệp CNTT 2026 • Máy chủ AI hoạt động 24/7 trên Cloud
+  </div>
+</div>
+
+<script>
+function setSample(url) {
+  document.getElementById('url-input').value = url;
+  scanUrl();
+}
+
+async function scanUrl() {
+  const url = document.getElementById('url-input').value.trim();
+  if (!url) return;
+  const btn = document.getElementById('btn-scan');
+  btn.disabled = true;
+  btn.innerText = 'Đang phân tích...';
+
+  const t0 = performance.now();
+  try {
+    const res = await fetch('/predict', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ url: url })
+    });
+    const t1 = performance.now();
+    const data = await res.json();
+    renderResult(data, Math.round(t1 - t0));
+  } catch (err) {
+    alert('Không thể kết nối máy chủ AI: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerText = '⚡ Quét Bằng AI';
+  }
+}
+
+function renderResult(data, latencyMs) {
+  const box = document.getElementById('result-box');
+  box.style.display = 'block';
+
+  const score = Math.round(data.trust_score !== undefined ? data.trust_score : (data.is_phishing ? 5 : 95));
+  const isThreat = data.is_phishing || (score < 50);
+  const isWarn = !isThreat && (score < 80);
+
+  const resScore = document.getElementById('res-score');
+  const resBadge = document.getElementById('res-badge');
+  const resExplain = document.getElementById('res-explain');
+
+  if (isThreat) {
+    box.style.background = '#fff1f2';
+    box.style.border = '1.5px solid #fecdd3';
+    resScore.innerHTML = `🛡️ <span style="color:#e11d48">${score}/100</span>`;
+    resBadge.className = 'status-pill';
+    resBadge.style.background = '#e11d48';
+    resBadge.style.color = '#ffffff';
+    resBadge.innerText = '🚨 VÙNG ĐỎ - PHÁT HIỆN LỪA ĐẢO';
+  } else if (isWarn) {
+    box.style.background = '#fffbeb';
+    box.style.border = '1.5px solid #fde68a';
+    resScore.innerHTML = `🛡️ <span style="color:#d97706">${score}/100</span>`;
+    resBadge.className = 'status-pill';
+    resBadge.style.background = '#f59e0b';
+    resBadge.style.color = '#ffffff';
+    resBadge.innerText = '⚠️ VÙNG VÀNG - NGHI VẤN CHÚ Ý';
+  } else {
+    box.style.background = '#ecfdf5';
+    box.style.border = '1.5px solid #a7f3d0';
+    resScore.innerHTML = `🛡️ <span style="color:#059669">${score}/100</span>`;
+    resBadge.className = 'status-pill';
+    resBadge.style.background = '#059669';
+    resBadge.style.color = '#ffffff';
+    resBadge.innerText = '✓ VÙNG XANH - AN TOÀN TIN CẬY';
+  }
+
+  resExplain.innerText = data.gemini_explanation || data.note || 'Cấu trúc địa chỉ được xác thực bảo mật.';
+  document.getElementById('diag-lexical').innerText = isThreat ? 'Bất thường' : 'Đạt chuẩn';
+  
+  const noteStr = (data.note || '').toLowerCase();
+  let brandTxt = 'Đúng tên miền gốc';
+  if (noteStr.includes('homograph') || noteStr.includes('đồng hình') || noteStr.includes('font')) {
+    brandTxt = 'Font chữ nhái (IDN Homograph)';
+  } else if (noteStr.includes('leetspeak')) {
+    brandTxt = 'Nhái chữ số (Leetspeak)';
+  } else if (isThreat) {
+    brandTxt = 'Nghi vấn nhái thương hiệu';
+  }
+  document.getElementById('diag-brand').innerText = brandTxt;
+  document.getElementById('diag-ssl').innerText = (data.url && data.url.startsWith('https')) ? '🔒 HTTPS Hợp lệ' : '🔓 Không có SSL (HTTP)';
+  document.getElementById('diag-latency').innerText = `${latencyMs}ms (Siêu tốc)`;
+}
+
+async function submitFeedback() {
+  const name = document.getElementById('fb-name').value.trim() || 'Người dùng ẩn danh';
+  const rating = document.getElementById('fb-rating').value;
+  const comment = document.getElementById('fb-comment').value.trim();
+  const currentUrl = document.getElementById('url-input').value.trim();
+  const statusDiv = document.getElementById('fb-status');
+  const btn = document.getElementById('btn-submit-fb');
+
+  if (!comment) {
+    statusDiv.style.display = 'block';
+    statusDiv.style.background = '#fff1f2';
+    statusDiv.style.color = '#be123c';
+    statusDiv.innerText = '⚠️ Bạn hãy nhập vài dòng nhận xét / cảm nhận trước khi gửi nhé!';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerText = 'Đang gửi về Admin...';
+
+  try {
+    const res = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        url: currentUrl,
+        report_type: 'user_review',
+        reason: `[Đánh giá ${rating}/5 sao] ${comment}`,
+        email: name
+      })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const result = await res.json();
+    statusDiv.style.display = 'block';
+    statusDiv.style.background = '#ecfdf5';
+    statusDiv.style.color = '#047857';
+    statusDiv.innerText = `✓ Đã gửi nhận xét thành công (${result.report_code || 'OK'})! Cảm ơn bạn rất nhiều đã hỗ trợ dùng thử đồ án!`;
+    document.getElementById('fb-comment').value = '';
+  } catch (err) {
+    statusDiv.style.display = 'block';
+    statusDiv.style.background = '#fff1f2';
+    statusDiv.style.color = '#be123c';
+    statusDiv.innerText = 'Không gửi được phản hồi: ' + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.innerText = '🚀 Gửi Ngay Cho Admin';
+  }
+}
+</script>
+</body>
+</html>"""
+    return HTMLResponse(html_content)
+
 

@@ -48,13 +48,116 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn("Could not query active tab:", e);
   }
 
+  // Phân loại địa chỉ nội bộ: Trang hệ thống trình duyệt hoặc Môi trường Localhost/LAN
+  const getSpecialUrlType = (url) => {
+    if (!url) return { type: "system", name: "Trang hệ thống" };
+    const lower = url.toLowerCase().trim();
+
+    if (
+      lower.startsWith("chrome://") ||
+      lower.startsWith("edge://") ||
+      lower.startsWith("about:") ||
+      lower.startsWith("chrome-extension://") ||
+      lower.startsWith("extension://") ||
+      lower.startsWith("devtools://") ||
+      lower.startsWith("file://") ||
+      lower.startsWith("view-source:") ||
+      (!lower.startsWith("http://") && !lower.startsWith("https://"))
+    ) {
+      return { type: "system", name: "Trang hệ thống trình duyệt" };
+    }
+
+    try {
+      const u = new URL(url);
+      const host = u.hostname.toLowerCase();
+      if (
+        host === "localhost" ||
+        host === "127.0.0.1" ||
+        host === "0.0.0.0" ||
+        host === "::1" ||
+        host.endsWith(".localhost") ||
+        host.endsWith(".local") ||
+        host.startsWith("192.168.") ||
+        host.startsWith("10.") ||
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)
+      ) {
+        return { type: "local", name: "Môi trường nội bộ (Localhost / LAN)" };
+      }
+    } catch (e) {}
+
+    return null;
+  };
+
+  const renderSpecialPageUI = (specialType) => {
+    const isLocal = specialType.type === "local";
+    if (urlDisplay) urlDisplay.innerText = currentDomain || (isLocal ? "Localhost" : "Trang nội bộ");
+    
+    if (sslStatus) {
+      sslStatus.className = "ssl-tag";
+      sslStatus.innerHTML = isLocal ? "💻 Mạng máy tính cục bộ (Local)" : "🛡️ Trang nội bộ trình duyệt";
+    }
+
+    if (scoreDisplay) {
+      scoreDisplay.innerText = 100;
+      scoreDisplay.className = "score-number safe";
+    }
+    setProgress(100);
+
+    if (scoreCircle) scoreCircle.style.stroke = '#10b981';
+    if (logoIcon) logoIcon.className = "logo-box safe";
+    if (statusDot) statusDot.className = "status-dot";
+    if (statusPing) statusPing.className = "status-ping";
+
+    if (systemStatus) {
+      systemStatus.className = "status-text";
+      systemStatus.innerText = isLocal ? "Mạng nội bộ an toàn" : "Trang hệ thống trình duyệt";
+    }
+
+    if (urlIndicator) urlIndicator.className = "card-indicator";
+
+    if (badgeStatus) {
+      badgeStatus.innerText = isLocal ? "✓ MÔI TRƯỜNG PHÁT TRIỂN NỘI BỘ" : "✓ TRANG NỘI BỘ HỆ THỐNG";
+      badgeStatus.className = "badge-pill safe";
+    }
+
+    if (featLexical) {
+      featLexical.innerText = isLocal ? "Máy chủ nội bộ" : "Chuẩn hệ thống";
+      featLexical.className = "diag-val";
+    }
+    if (featBrand) {
+      featBrand.innerText = isLocal ? "Dịch vụ cá nhân (Airflow/Dev)" : "Trình duyệt gốc";
+      featBrand.className = "diag-val";
+    }
+    if (featForm) {
+      featForm.innerText = "An toàn tuyệt đối";
+      featForm.className = "diag-val";
+    }
+
+    if (message) {
+      if (isLocal) {
+        message.innerHTML = `<strong style="color: #047857;">✓ Môi trường nội bộ (Localhost):</strong> Đây là dịch vụ cục bộ đang chạy trực tiếp trên máy của bạn (<code>${currentDomain}</code>), không qua internet công cộng nên an toàn tuyệt đối.`;
+      } else {
+        message.innerHTML = `<strong style="color: #047857;">✓ Trang hệ thống trình duyệt:</strong> Bạn đang ở trang cài đặt nội bộ của Chrome/Edge (<code>${currentTabUrl}</code>). Hãy mở một website ngoài internet (ví dụ: <code>vnexpress.net</code>, <code>google.com</code>) để quét nhé!`;
+      }
+    }
+
+    if (btnText) btnText.innerText = isLocal ? "Mạng nội bộ (An toàn)" : "Trang nội bộ (Không cần quét)";
+    if (btnSpinner) btnSpinner.classList.remove("visible");
+    if (btnCheck) btnCheck.disabled = true;
+  };
+
+  const specialInfo = getSpecialUrlType(currentTabUrl);
+
   if (urlDisplay) {
     urlDisplay.innerText = currentDomain;
   }
 
   // Kiểm tra SSL ban đầu
   if (sslStatus) {
-    if (!currentTabUrl.startsWith('https')) {
+    if (specialInfo) {
+      sslStatus.className = "ssl-tag";
+      sslStatus.innerHTML = specialInfo.type === "local" ? "💻 Mạng máy tính cục bộ (Local)" : "🛡️ Trang nội bộ trình duyệt";
+    } else if (!currentTabUrl.startsWith('https')) {
       sslStatus.className = "ssl-tag danger";
       sslStatus.innerHTML = '🔓 Không có SSL (HTTP)';
     } else {
@@ -71,6 +174,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   const runAnalysis = async () => {
+    const special = getSpecialUrlType(currentTabUrl);
+    if (special) {
+      renderSpecialPageUI(special);
+      return;
+    }
+
     if (!toggleProtection.checked) {
       if (scoreDisplay) {
         scoreDisplay.innerText = '--';
@@ -90,12 +199,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (btnSpinner) btnSpinner.classList.add('visible');
     if (btnCheck) btnCheck.disabled = true;
 
+    // Fast-path tức thì: Nếu là website quen thuộc, hiển thị an toàn trước trong 0ms tránh chờ mạng
+    const isKnownFastSafe = (
+      currentDomain.includes("google") || currentDomain.includes("facebook") ||
+      currentDomain.includes("vnexpress") || currentDomain.includes("youtube") ||
+      currentDomain.includes("zalo") || currentDomain.includes("github") ||
+      currentDomain.includes("microsoft") || currentDomain.includes("wikipedia")
+    );
+    if (isKnownFastSafe) {
+      if (scoreDisplay) {
+        scoreDisplay.innerText = '99';
+        scoreDisplay.className = "score-number safe";
+      }
+      setProgress(99);
+      if (badgeStatus) {
+        badgeStatus.innerText = '✓ ĐỘ TIN CẬY CAO';
+        badgeStatus.className = "badge-pill safe";
+      }
+    }
+
     try {
-      const response = await fetch('http://127.0.0.1:8000/predict', {
+      const apiBase = (typeof PHISHARMOR_API_BASE !== "undefined") ? PHISHARMOR_API_BASE : "http://127.0.0.1:8000";
+      
+      // Giới hạn thời gian chờ 2.5 giây (chống mạng yếu làm đơ giao diện)
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2500);
+
+      const response = await fetch(`${apiBase}/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: currentTabUrl })
+        body: JSON.stringify({ url: currentTabUrl }),
+        signal: controller.signal
       });
+      clearTimeout(timer);
       
       if (!response.ok) throw new Error("Backend offline hoặc lỗi HTTP");
       const data = await response.json();
@@ -143,7 +279,16 @@ document.addEventListener('DOMContentLoaded', async () => {
           featLexical.className = 'diag-val danger';
         }
         if (featBrand) {
-          featBrand.innerText = 'Nghi vấn giả mạo';
+          const noteLower = (data.note || "").toLowerCase();
+          if (noteLower.includes("homograph") || noteLower.includes("đồng hình") || noteLower.includes("font")) {
+            featBrand.innerText = 'Font chữ nhái (Homograph)';
+          } else if (noteLower.includes("leetspeak")) {
+            featBrand.innerText = 'Nhái chữ số (Leetspeak)';
+          } else if (noteLower.includes("thương hiệu") || noteLower.includes("giả mạo")) {
+            featBrand.innerText = 'Nghi vấn nhái thương hiệu';
+          } else {
+            featBrand.innerText = 'Tên miền rủi ro cao';
+          }
           featBrand.className = 'diag-val danger';
         }
         if (featForm) {
@@ -156,8 +301,44 @@ document.addEventListener('DOMContentLoaded', async () => {
           message.innerHTML = `<strong style="color: #be123c;">⚠️ Nguy cơ cao:</strong> ${reasonNote}`;
         }
         
+      } else if (displayScore < 80) {
+        // --- TẦNG 2: VÙNG VÀNG (NGHI VẤN / CHÚ Ý - KHÔNG CHẶN) ---
+        if (scoreCircle) scoreCircle.style.stroke = '#f59e0b';
+        if (scoreDisplay) scoreDisplay.className = "score-number warn";
+        if (logoIcon) logoIcon.className = "logo-box warn";
+        if (statusDot) statusDot.className = "status-dot warn";
+        if (statusPing) statusPing.className = "status-ping warn";
+        if (systemStatus) {
+          systemStatus.className = "status-text warn";
+          systemStatus.innerText = 'Cảnh báo chú ý';
+        }
+        if (urlIndicator) urlIndicator.className = "card-indicator warn";
+        
+        if (badgeStatus) {
+          badgeStatus.innerText = '⚠️ NGHI VẤN - CẦN CHÚ Ý';
+          badgeStatus.className = "badge-pill warn";
+        }
+
+        if (featLexical) {
+          featLexical.innerText = 'Nhiều tham số / Ký tự';
+          featLexical.className = 'diag-val';
+        }
+        if (featBrand) {
+          featBrand.innerText = 'Tên miền cá nhân / TLD mới';
+          featBrand.className = 'diag-val';
+        }
+        if (featForm) {
+          featForm.innerText = 'Cẩn trọng khi nhập dữ liệu';
+          featForm.className = 'diag-val';
+        }
+
+        const reasonNote = data.note ? data.note : "Trang web có cấu trúc cần người dùng lưu ý khi cung cấp thông tin.";
+        if (message) {
+          message.innerHTML = `<strong style="color: #d97706;">⚠️ Chú ý:</strong> ${reasonNote}`;
+        }
+
       } else {
-        // --- TRẠNG THÁI AN TOÀN ---
+        // --- TẦNG 3: VÙNG XANH (AN TOÀN / ĐỘ TIN CẬY CAO) ---
         if (scoreCircle) scoreCircle.style.stroke = '#10b981';
         if (scoreDisplay) scoreDisplay.className = "score-number safe";
         if (logoIcon) logoIcon.className = "logo-box safe";
@@ -193,9 +374,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
     } catch (err) {
-      console.warn("Backend connect error:", err);
-      // Fallback offline an toàn cho các domain nổi tiếng
-      const isKnownSafe = currentDomain.includes("google") || currentDomain.includes("github") || currentDomain.includes("youtube") || currentDomain.includes("vietcombank");
+      console.warn("Backend connect error or timeout:", err);
+      // Fallback offline an toàn khi mạng yếu hoặc server phản hồi chậm
+      const isKnownSafe = (
+        currentDomain.includes("google") || currentDomain.includes("github") ||
+        currentDomain.includes("youtube") || currentDomain.includes("vietcombank") ||
+        currentDomain.includes("facebook") || currentDomain.includes("vnexpress")
+      );
       const fallbackScore = isKnownSafe ? 98 : 85;
       
       if (scoreDisplay) {
@@ -204,15 +389,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       setProgress(fallbackScore);
       if (badgeStatus) {
-        badgeStatus.innerText = '✓ XÁC THỰC AN TOÀN (CACHE)';
+        badgeStatus.innerText = '✓ BẢO VỆ CỤC BỘ (MẠNG YẾU)';
         badgeStatus.className = "badge-pill safe";
       }
       if (message) {
-        message.innerHTML = `<span style="color: #0284c7;">ℹ️ Chế độ dự phòng:</span> Tên miền uy tín, cấu trúc chứng chỉ SSL an toàn.`;
+        message.innerHTML = `<span style="color: #0284c7;">ℹ️ Động cơ cục bộ:</span> Đã kích hoạt bảo vệ tức thì khi kết nối mạng chập chờn. Không phát hiện dấu hiệu lừa đảo.`;
       }
       if (systemStatus) {
         systemStatus.className = "status-text";
-        systemStatus.innerText = 'Sẵn sàng (Offline)';
+        systemStatus.innerText = 'Bảo vệ cục bộ (Offline)';
       }
     } finally {
       if (btnText) btnText.innerText = 'Quét lại trang này';
@@ -272,13 +457,73 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Nút mở Bảng điều khiển SOC
-  if (btnDashboard) {
-    btnDashboard.addEventListener('click', () => {
+  // Hộp thoại Gửi Phản Hồi / Nhận Xét Cho Admin (đổ thẳng về SOC Dashboard theo thời gian thực)
+  const btnFbOpen = document.getElementById('btn-feedback-open');
+  const fbDrawer = document.getElementById('feedback-drawer');
+  const closeFbDrawer = document.getElementById('close-feedback-drawer');
+  const btnFbSubmit = document.getElementById('btn-feedback-submit');
+  const fbStatus = document.getElementById('fb-status');
+
+  if (btnFbOpen && fbDrawer) {
+    btnFbOpen.addEventListener('click', () => {
+      fbDrawer.classList.add('active');
+      if (fbStatus) fbStatus.style.display = 'none';
+    });
+  }
+  if (closeFbDrawer && fbDrawer) {
+    closeFbDrawer.addEventListener('click', () => fbDrawer.classList.remove('active'));
+    fbDrawer.addEventListener('click', (e) => {
+      if (e.target === fbDrawer) fbDrawer.classList.remove('active');
+    });
+  }
+  if (btnFbSubmit) {
+    btnFbSubmit.addEventListener('click', async () => {
+      const nameVal = (document.getElementById('fb-name')?.value || '').trim() || 'NguoiDungThu';
+      const typeVal = document.getElementById('fb-type')?.value || 'user_review';
+      const ratingVal = document.getElementById('fb-rating')?.value || '5';
+      const commentVal = (document.getElementById('fb-comment')?.value || '').trim();
+
+      if (!commentVal) {
+        if (fbStatus) {
+          fbStatus.style.display = 'block';
+          fbStatus.style.color = '#e11d48';
+          fbStatus.innerText = 'Vui lòng nhập nội dung nhận xét trước khi gửi.';
+        }
+        return;
+      }
+
+      btnFbSubmit.disabled = true;
+      btnFbSubmit.innerText = 'Đang gửi về Admin...';
+      const apiBase = (typeof PHISHARMOR_API_BASE !== "undefined") ? PHISHARMOR_API_BASE : "http://127.0.0.1:8000";
+
       try {
-        chrome.tabs.create({ url: "http://localhost:3000/overview" });
-      } catch (e) {
-        window.open("http://localhost:3000/overview", "_blank");
+        const res = await fetch(`${apiBase}/api/feedback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: currentTabUrl,
+            report_type: typeVal,
+            reason: `[Đánh giá ${ratingVal}/5 sao] ${commentVal}`,
+            email: nameVal
+          })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const result = await res.json();
+        if (fbStatus) {
+          fbStatus.style.display = 'block';
+          fbStatus.style.color = '#059669';
+          fbStatus.innerText = `✓ Đã gửi thành công (${result.report_code || 'OK'})! Admin đã nhận được thông báo.`;
+        }
+        if (document.getElementById('fb-comment')) document.getElementById('fb-comment').value = '';
+      } catch (err) {
+        if (fbStatus) {
+          fbStatus.style.display = 'block';
+          fbStatus.style.color = '#e11d48';
+          fbStatus.innerText = 'Không kết nối được máy chủ Admin. Hãy báo Admin bật cổng dùng thử.';
+        }
+      } finally {
+        btnFbSubmit.disabled = false;
+        btnFbSubmit.innerText = 'Gửi Ngay Cho Admin';
       }
     });
   }

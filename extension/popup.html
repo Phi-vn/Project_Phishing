@@ -126,6 +126,12 @@
     .status-ping.danger {
       background-color: #f87171;
     }
+    .status-dot.warn {
+      background-color: #f59e0b;
+    }
+    .status-ping.warn {
+      background-color: #fbbf24;
+    }
     .status-text {
       font-size: 11px;
       font-weight: 600;
@@ -133,6 +139,9 @@
     }
     .status-text.danger {
       color: #e11d48;
+    }
+    .status-text.warn {
+      color: #d97706;
     }
 
     /* iOS Style Toggle Switch */
@@ -234,6 +243,9 @@
     .score-number.danger {
       color: #e11d48;
     }
+    .score-number.warn {
+      color: #d97706;
+    }
     .score-label {
       font-size: 10px;
       font-weight: 600;
@@ -270,6 +282,11 @@
       border: 1px solid #fecdd3;
       animation: pulse-danger 2s infinite;
     }
+    .badge-pill.warn {
+      background-color: #fffbeb;
+      color: #b45309;
+      border: 1px solid #fde68a;
+    }
     .badge-pill.disabled {
       background-color: #f1f5f9;
       color: #64748b;
@@ -298,6 +315,9 @@
       height: 100%;
       background-color: #10b981;
       transition: background-color 0.3s ease;
+    }
+    .card-indicator.warn {
+      background-color: #f59e0b;
     }
     .card-indicator.danger {
       background-color: #ef4444;
@@ -451,6 +471,52 @@
     }
     .btn-dashboard:hover {
       background: #f0f9ff;
+    }
+    .btn-feedback {
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+      font-size: 11px;
+      padding: 8px 12px;
+    }
+    .btn-feedback:hover {
+      background: #d1fae5;
+    }
+    .fb-field {
+      margin-bottom: 9px;
+    }
+    .fb-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 4px;
+    }
+    .fb-input, .fb-select, .fb-textarea {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 11px;
+      font-family: inherit;
+      color: #0f172a;
+      background: #f8fafc;
+      outline: none;
+    }
+    .fb-input:focus, .fb-select:focus, .fb-textarea:focus {
+      border-color: #10b981;
+      background: #ffffff;
+    }
+    .fb-textarea {
+      resize: vertical;
+      min-height: 62px;
+    }
+    .fb-status {
+      margin-top: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+      display: none;
     }
 
     /* Spinner */
@@ -658,15 +724,53 @@
         <span>Hỏi Gemini AI Giải Thích</span>
       </button>
 
-      <button id="btn-dashboard" class="btn btn-dashboard">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="3" width="7" height="7"></rect>
-          <rect x="14" y="3" width="7" height="7"></rect>
-          <rect x="14" y="14" width="7" height="7"></rect>
-          <rect x="3" y="14" width="7" height="7"></rect>
-        </svg>
-        <span>Mở Bảng Điều Khiển Quản Trị SOC ↗</span>
+      <button id="btn-feedback-open" class="btn btn-feedback">
+        <span>💬</span>
+        <span>Gửi Phản Hồi / Nhận Xét Cho Admin</span>
       </button>
+    </div>
+
+    <!-- User Feedback Drawer Modal -->
+    <div id="feedback-drawer" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-title">
+            <span>💬</span>
+            <span>Gửi Phản Hồi / Nhận Xét Về Admin</span>
+          </div>
+          <button id="close-feedback-drawer" class="modal-close" title="Đóng">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="fb-field">
+            <label class="fb-label" for="fb-name">Tên hoặc email của bạn:</label>
+            <input id="fb-name" class="fb-input" type="text" placeholder="Ví dụ: Nguyễn Văn A">
+          </div>
+          <div class="fb-field">
+            <label class="fb-label" for="fb-type">Loại phản hồi:</label>
+            <select id="fb-type" class="fb-select">
+              <option value="user_review">Nhận xét dùng thử tiện ích</option>
+              <option value="false_positive">Báo cáo chặn nhầm trang an toàn</option>
+              <option value="false_negative">Báo cáo trang lừa đảo bị bỏ sót</option>
+            </select>
+          </div>
+          <div class="fb-field">
+            <label class="fb-label" for="fb-rating">Mức độ hài lòng (1 đến 5 sao):</label>
+            <select id="fb-rating" class="fb-select">
+              <option value="5">5/5 - Rất tốt, dễ hiểu và nhanh</option>
+              <option value="4">4/5 - Tốt, đáp ứng nhu cầu</option>
+              <option value="3">3/5 - Bình thường</option>
+              <option value="2">2/5 - Cần cải thiện</option>
+              <option value="1">1/5 - Chưa tốt</option>
+            </select>
+          </div>
+          <div class="fb-field">
+            <label class="fb-label" for="fb-comment">Nội dung góp ý / nhận xét:</label>
+            <textarea id="fb-comment" class="fb-textarea" placeholder="Nhập cảm nhận về tốc độ, cảnh báo, giao diện hoặc báo cáo trang web này..."></textarea>
+          </div>
+          <button id="btn-feedback-submit" class="btn btn-primary">Gửi Ngay Cho Admin</button>
+          <div id="fb-status" class="fb-status"></div>
+        </div>
+      </div>
     </div>
 
     <!-- AI Explanation Drawer Modal -->
@@ -687,6 +791,7 @@
 
   </div>
 
+  <script src="config.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
