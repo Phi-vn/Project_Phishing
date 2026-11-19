@@ -1598,12 +1598,12 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
       </div>
     </div>
     <div class="stats">
-      <div class="stat"><div class="stat-label">Khảo sát dùng thử (Mục 4.4.4)</div><div class="stat-val" style="color:#059669">{len(feedbacks)} <span style="font-size:16px;font-weight:700;color:#d97706">({avg_rating_str} ⭐)</span></div></div>
+      <div class="stat"><div class="stat-label">Khảo sát & Đánh giá người dùng</div><div class="stat-val" style="color:#059669">{len(feedbacks)} <span style="font-size:16px;font-weight:700;color:#d97706">({avg_rating_str} ⭐)</span></div></div>
       <div class="stat"><div class="stat-label">Tổng lượt quét URL</div><div class="stat-val" style="color:#2563eb">{total_scans}</div></div>
       <div class="stat"><div class="stat-label">Trang lừa đảo đã chặn</div><div class="stat-val" style="color:#e11d48">{phishing_scans}</div></div>
     </div>
     <div class="card">
-      <h2>💬 Danh sách Khảo sát & Đánh giá từ Người dùng thử (Mục 4.4.4 Đồ án)</h2>
+      <h2>💬 Danh sách Khảo sát & Đánh giá từ Người dùng thử</h2>
       <table>
         <thead>
           <tr>
@@ -1681,7 +1681,7 @@ def export_feedback_csv(key: Optional[str] = Query(default=None), db: Session = 
     return StreamingResponse(
         iter([buf.getvalue()]),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="PhishArmor_KhaoSat_NguoiDungThu_Chuong4.csv"'},
+        headers={"Content-Disposition": 'attachment; filename="PhishArmor_KhaoSat_NguoiDungThu.csv"'},
     )
 
 
