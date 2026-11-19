@@ -66,7 +66,9 @@ document.addEventListener("DOMContentLoaded", () => {
               url: rawUrl || window.location.href,
               report_type: "false_positive",
               reason: "Người dùng báo cáo nhầm lẫn từ màn hình cảnh báo tiện ích PhishArmor",
-              email: "analyst@phisharmor.vn"
+              email: "analyst@phisharmor.vn",
+              confidence_score: 95.0,
+              ai_prediction: "Đã kích hoạt Chặn (Nguy cơ Phishing cao)"
             })
           });
         } catch (e) {

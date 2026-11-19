@@ -1485,12 +1485,26 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
         ts = (fb.timestamp + datetime.timedelta(hours=7)).strftime("%d/%m/%Y %H:%M") if fb.timestamp else ""
         conf_val = round(fb.confidence_score or 0)
         ai_pred = fb.ai_prediction or "Đã quét"
-        if "Lừa đảo" in ai_pred or (fb.confidence_score and fb.confidence_score <= 45):
-            ai_badge = f"<span class='badge' style='color:#e11d48;background:#fff1f2'>{html.escape(ai_pred)} ({conf_val}%)</span>"
-        elif "Nghi vấn" in ai_pred or (50 <= conf_val < 80):
-            ai_badge = f"<span class='badge' style='color:#d97706;background:#fffbeb'>{html.escape(ai_pred)} ({conf_val}/100)</span>"
+
+        # Phân biệt chính xác giữa Độ nguy cơ khi Chặn (Phishing Risk) và Điểm an toàn (Trust Score)
+        is_blocked_or_phish = (
+            fb.report_type == "false_positive"
+            or "chặn" in ai_pred.lower()
+            or "lừa đảo" in ai_pred.lower()
+            or "phishing" in ai_pred.lower()
+            or (fb.confidence_score is not None and fb.confidence_score <= 45)
+        )
+        is_warning = not is_blocked_or_phish and (
+            "nghi vấn" in ai_pred.lower() or (50 <= conf_val < 80)
+        )
+
+        if is_blocked_or_phish:
+            badge_text = f"🚨 AI Đã Chặn (Nguy cơ {conf_val}%)" if conf_val >= 50 else f"🚨 Nguy hiểm (Tin cậy {conf_val}/100)"
+            ai_badge = f"<span class='badge' style='color:#e11d48;background:#fff1f2'>{html.escape(badge_text)}</span>"
+        elif is_warning:
+            ai_badge = f"<span class='badge' style='color:#d97706;background:#fffbeb'>⚠️ Nghi vấn ({conf_val}/100)</span>"
         else:
-            ai_badge = f"<span class='badge' style='color:#059669;background:#ecfdf5'>{html.escape(ai_pred)} ({conf_val}%)</span>"
+            ai_badge = f"<span class='badge' style='color:#059669;background:#ecfdf5'>✓ An toàn ({conf_val}%)</span>"
 
         fb_rows.append(
             f"<tr>"
@@ -1597,10 +1611,14 @@ def export_feedback_csv(key: Optional[str] = Query(default=None), db: Session = 
     buf = io.StringIO()
     buf.write("\ufeff")
     writer = csv.writer(buf)
-    writer.writerow(["STT", "MaBaoCao", "ThoiGianVN", "NguoiGui", "LoaiPhanHoi", "DanhGiaAI", "DiemTinCay", "NoiDungNhanXet", "URL"])
+    writer.writerow(["STT", "MaBaoCao", "ThoiGianVN", "NguoiGui", "LoaiPhanHoi", "DanhGiaAI", "DiemSo", "NoiDungNhanXet", "URL"])
     for idx, fb in enumerate(feedbacks, 1):
         ts = (fb.timestamp + datetime.timedelta(hours=7)).strftime("%Y-%m-%d %H:%M:%S") if fb.timestamp else ""
-        writer.writerow([idx, fb.report_code, ts, fb.reporter_user, fb.report_type, fb.ai_prediction or "Đã quét", f"{round(fb.confidence_score or 0)}/100", fb.user_comment, fb.url])
+        conf_val = round(fb.confidence_score or 0)
+        ai_pred = fb.ai_prediction or "Đã quét"
+        is_blocked = (fb.report_type == "false_positive" or "chặn" in ai_pred.lower() or "lừa đảo" in ai_pred.lower() or (fb.confidence_score is not None and fb.confidence_score <= 45))
+        ai_text = f"AI Chặn (Nguy cơ {conf_val}%)" if is_blocked else (f"Nghi vấn ({conf_val}/100)" if (50 <= conf_val < 80) else f"An toàn ({conf_val}%)")
+        writer.writerow([idx, fb.report_code, ts, fb.reporter_user, fb.report_type, ai_text, f"{conf_val}%", fb.user_comment, fb.url])
     buf.seek(0)
     return StreamingResponse(
         iter([buf.getvalue()]),
