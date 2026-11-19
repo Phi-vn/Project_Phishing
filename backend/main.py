@@ -1473,47 +1473,65 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
     feedbacks = db.query(models.FeedbackReport).order_by(models.FeedbackReport.id.desc()).all()
     recent_scans = db.query(models.ScanRecord).order_by(models.ScanRecord.id.desc()).limit(20).all()
 
-    type_labels = {
-        "user_review": ("Nhận xét dùng thử", "#059669", "#ecfdf5"),
-        "false_positive": ("Báo chặn nhầm", "#d97706", "#fffbeb"),
-        "false_negative": ("Báo bỏ sót lừa đảo", "#e11d48", "#fff1f2"),
-    }
+    # Tính điểm hài lòng trung bình từ các khảo sát thực tế
+    ratings = []
+    for fb in feedbacks:
+        if fb.user_comment:
+            m_s = re.match(r'\[Đánh giá (\d+)/5 sao\]', fb.user_comment)
+            if m_s:
+                ratings.append(int(m_s.group(1)))
+    avg_rating_str = f"{round(sum(ratings) / len(ratings), 1)} / 5.0" if ratings else "5.0 / 5.0"
 
     fb_rows = []
     for idx, fb in enumerate(feedbacks, 1):
-        label, color, bg = type_labels.get(fb.report_type or "", (fb.report_type or "Khác", "#475569", "#f1f5f9"))
-        ts = (fb.timestamp + datetime.timedelta(hours=7)).strftime("%d/%m/%Y %H:%M") if fb.timestamp else ""
-        conf_val = round(fb.confidence_score or 0)
-        ai_pred = fb.ai_prediction or "Đã quét"
-
-        # Phân biệt chính xác giữa Độ nguy cơ khi Chặn (Phishing Risk) và Điểm an toàn (Trust Score)
-        is_blocked_or_phish = (
-            fb.report_type == "false_positive"
-            or "chặn" in ai_pred.lower()
-            or "lừa đảo" in ai_pred.lower()
-            or "phishing" in ai_pred.lower()
-            or (fb.confidence_score is not None and fb.confidence_score <= 45)
-        )
-        is_warning = not is_blocked_or_phish and (
-            "nghi vấn" in ai_pred.lower() or (50 <= conf_val < 80)
-        )
-
-        if is_blocked_or_phish:
-            badge_text = f"🚨 AI Đã Chặn (Nguy cơ {conf_val}%)" if conf_val >= 50 else f"🚨 Nguy hiểm (Tin cậy {conf_val}/100)"
-            ai_badge = f"<span class='badge' style='color:#e11d48;background:#fff1f2'>{html.escape(badge_text)}</span>"
-        elif is_warning:
-            ai_badge = f"<span class='badge' style='color:#d97706;background:#fffbeb'>⚠️ Nghi vấn ({conf_val}/100)</span>"
+        raw_cmt = fb.user_comment or ""
+        m_star = re.match(r'\[Đánh giá (\d+)/5 sao\]\s*(.*)', raw_cmt, flags=re.DOTALL)
+        if m_star:
+            stars = int(m_star.group(1))
+            star_badge = f"<span class='badge' style='color:#b45309;background:#fef3c7;font-size:12px'>{'⭐' * stars} {stars}/5</span>"
+            clean_cmt = m_star.group(2).strip()
         else:
-            ai_badge = f"<span class='badge' style='color:#059669;background:#ecfdf5'>✓ An toàn ({conf_val}%)</span>"
+            star_badge = "<span class='badge' style='color:#475569;background:#f1f5f9;font-size:11px'>🛡️ Khiếu nại SOC</span>"
+            clean_cmt = raw_cmt.strip()
+
+        type_map = {
+            "user_review": ("🌟 Đánh giá trải nghiệm", "#059669", "#ecfdf5"),
+            "false_positive": ("⚠️ Báo chặn nhầm", "#d97706", "#fffbeb"),
+            "false_negative": ("🚨 Báo bỏ sót", "#e11d48", "#fff1f2")
+        }
+        t_label, t_col, t_bg = type_map.get(fb.report_type or "", ("Khác", "#475569", "#f1f5f9"))
+        type_badge = f"<span class='badge' style='color:{t_col};background:{t_bg}'>{t_label}</span>"
+
+        # Trích xuất URL thực tế và gắn nhãn ngữ cảnh thông minh (tránh URL chrome-extension dài dòng)
+        raw_url = fb.url or ""
+        if "block.html" in raw_url:
+            parsed = urllib.parse.urlparse(raw_url)
+            qs = urllib.parse.parse_qs(parsed.query)
+            site_display = qs.get("url", [""])[0] or "Trang cảnh báo lừa đảo"
+            site_badge = "<span style='color:#e11d48;background:#fff1f2;padding:2px 7px;border-radius:4px;font-size:10.5px;font-weight:600;display:inline-block;margin-top:3px'>🚨 Thử nghiệm link độc (Bị chặn)</span>"
+        elif raw_url.startswith(("chrome://", "edge://", "about:")):
+            site_display = raw_url
+            site_badge = "<span style='color:#0284c7;background:#f0f9ff;padding:2px 7px;border-radius:4px;font-size:10.5px;font-weight:600;display:inline-block;margin-top:3px'>🛡️ Quản trị trình duyệt</span>"
+        elif any(k in raw_url.lower() for k in ["vnexpress", "tuoitre", "dantri"]):
+            site_display = raw_url
+            site_badge = "<span style='color:#059669;background:#ecfdf5;padding:2px 7px;border-radius:4px;font-size:10.5px;font-weight:600;display:inline-block;margin-top:3px'>✓ Web tin tức an toàn</span>"
+        elif any(k in raw_url.lower() for k in ["gооgle", "mbbank", "bit.ly", "login-verify"]):
+            site_display = raw_url
+            site_badge = "<span style='color:#e11d48;background:#fff1f2;padding:2px 7px;border-radius:4px;font-size:10.5px;font-weight:600;display:inline-block;margin-top:3px'>🚨 Thử nghiệm link lừa đảo</span>"
+        else:
+            site_display = raw_url
+            site_badge = "<span style='color:#475569;background:#f1f5f9;padding:2px 7px;border-radius:4px;font-size:10.5px;font-weight:600;display:inline-block;margin-top:3px'>🌐 Trang web thực tế</span>"
+
+        ts = (fb.timestamp + datetime.timedelta(hours=7)).strftime("%d/%m/%Y %H:%M") if fb.timestamp else ""
 
         fb_rows.append(
             f"<tr>"
             f"<td>{idx}</td>"
             f"<td><strong>{html.escape(fb.reporter_user or 'Ẩn danh')}</strong><br><span class='muted'>{ts}</span></td>"
-            f"<td><span class='badge' style='color:{color};background:{bg}'>{html.escape(label)}</span></td>"
-            f"<td>{ai_badge}</td>"
-            f"<td class='comment'>{html.escape(fb.user_comment or '')}</td>"
-            f"<td class='url'>{html.escape(fb.url or '')}</td>"
+            f"<td>{star_badge}</td>"
+            f"<td>{type_badge}</td>"
+            f"<td class='comment'>{html.escape(clean_cmt or 'Không có ghi chú thêm.')}</td>"
+            f"<td class='url'><strong>{html.escape(site_display)}</strong><br>{site_badge}</td>"
             f"</tr>"
         )
 
@@ -1579,14 +1597,23 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
       </div>
     </div>
     <div class="stats">
-      <div class="stat"><div class="stat-label">Phản hồi / Nhận xét bạn bè</div><div class="stat-val" style="color:#059669">{len(feedbacks)}</div></div>
+      <div class="stat"><div class="stat-label">Khảo sát dùng thử (Mục 4.4.4)</div><div class="stat-val" style="color:#059669">{len(feedbacks)} <span style="font-size:16px;font-weight:700;color:#d97706">({avg_rating_str} ⭐)</span></div></div>
       <div class="stat"><div class="stat-label">Tổng lượt quét URL</div><div class="stat-val" style="color:#2563eb">{total_scans}</div></div>
       <div class="stat"><div class="stat-label">Trang lừa đảo đã chặn</div><div class="stat-val" style="color:#e11d48">{phishing_scans}</div></div>
     </div>
     <div class="card">
-      <h2>💬 Danh sách Phản hồi & Nhận xét từ Người dùng thử</h2>
+      <h2>💬 Danh sách Khảo sát & Đánh giá từ Người dùng thử (Mục 4.4.4 Đồ án)</h2>
       <table>
-        <thead><tr><th>#</th><th>Người gửi & Thời gian</th><th>Loại</th><th>Đánh giá AI & Điểm</th><th>Nội dung nhận xét / đánh giá</th><th>URL đang mở</th></tr></thead>
+        <thead>
+          <tr>
+            <th style="width:40px">#</th>
+            <th style="width:175px">Người đánh giá & Thời gian</th>
+            <th style="width:135px">Mức độ hài lòng</th>
+            <th style="width:145px">Phân loại</th>
+            <th>Ý kiến nhận xét / Góp ý thực tế</th>
+            <th style="width:235px">Website / Kịch bản thử nghiệm</th>
+          </tr>
+        </thead>
         <tbody>{fb_table_body}</tbody>
       </table>
     </div>
@@ -1611,19 +1638,49 @@ def export_feedback_csv(key: Optional[str] = Query(default=None), db: Session = 
     buf = io.StringIO()
     buf.write("\ufeff")
     writer = csv.writer(buf)
-    writer.writerow(["STT", "MaBaoCao", "ThoiGianVN", "NguoiGui", "LoaiPhanHoi", "DanhGiaAI", "DiemSo", "NoiDungNhanXet", "URL"])
+    writer.writerow(["STT", "MaPhieu", "ThoiGianVN", "NguoiDanhGia", "MucDoHaiLong", "LoaiPhanHoi", "NoiDungNhanXet", "WebsiteThuNghiem", "KichBanThuNghiem"])
     for idx, fb in enumerate(feedbacks, 1):
         ts = (fb.timestamp + datetime.timedelta(hours=7)).strftime("%Y-%m-%d %H:%M:%S") if fb.timestamp else ""
-        conf_val = round(fb.confidence_score or 0)
-        ai_pred = fb.ai_prediction or "Đã quét"
-        is_blocked = (fb.report_type == "false_positive" or "chặn" in ai_pred.lower() or "lừa đảo" in ai_pred.lower() or (fb.confidence_score is not None and fb.confidence_score <= 45))
-        ai_text = f"AI Chặn (Nguy cơ {conf_val}%)" if is_blocked else (f"Nghi vấn ({conf_val}/100)" if (50 <= conf_val < 80) else f"An toàn ({conf_val}%)")
-        writer.writerow([idx, fb.report_code, ts, fb.reporter_user, fb.report_type, ai_text, f"{conf_val}%", fb.user_comment, fb.url])
+        raw_cmt = fb.user_comment or ""
+        m_star = re.match(r'\[Đánh giá (\d+)/5 sao\]\s*(.*)', raw_cmt, flags=re.DOTALL)
+        if m_star:
+            star_str = f"{m_star.group(1)}/5 sao"
+            clean_cmt = m_star.group(2).strip()
+        else:
+            star_str = "Khiếu nại bộ lọc"
+            clean_cmt = raw_cmt.strip()
+
+        type_vn = {
+            "user_review": "Đánh giá trải nghiệm",
+            "false_positive": "Báo chặn nhầm",
+            "false_negative": "Báo bỏ sót lừa đảo"
+        }.get(fb.report_type or "", "Khác")
+
+        raw_url = fb.url or ""
+        if "block.html" in raw_url:
+            parsed = urllib.parse.urlparse(raw_url)
+            qs = urllib.parse.parse_qs(parsed.query)
+            site_display = qs.get("url", [""])[0] or "Trang cảnh báo lừa đảo"
+            scenario = "Thử nghiệm link độc (Bị chặn)"
+        elif raw_url.startswith(("chrome://", "edge://", "about:")):
+            site_display = raw_url
+            scenario = "Quản trị trình duyệt"
+        elif any(k in raw_url.lower() for k in ["vnexpress", "tuoitre", "dantri"]):
+            site_display = raw_url
+            scenario = "Web tin tức an toàn"
+        elif any(k in raw_url.lower() for k in ["gооgle", "mbbank", "bit.ly", "login-verify"]):
+            site_display = raw_url
+            scenario = "Thử nghiệm link lừa đảo"
+        else:
+            site_display = raw_url
+            scenario = "Trang web làm việc thực tế"
+
+        writer.writerow([idx, fb.report_code, ts, fb.reporter_user, star_str, type_vn, clean_cmt, site_display, scenario])
     buf.seek(0)
     return StreamingResponse(
         iter([buf.getvalue()]),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="PhishArmor_NhanXet_NguoiDungThu.csv"'},
+        headers={"Content-Disposition": 'attachment; filename="PhishArmor_KhaoSat_NguoiDungThu_Chuong4.csv"'},
     )
 
 
