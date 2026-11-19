@@ -504,7 +504,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             url: currentTabUrl,
             report_type: typeVal,
             reason: `[Đánh giá ${ratingVal}/5 sao] ${commentVal}`,
-            email: nameVal
+            email: nameVal,
+            confidence_score: lastPredictionData?.trust_score !== undefined ? lastPredictionData.trust_score : (lastPredictionData?.confidence ?? 85),
+            ai_prediction: lastPredictionData?.label || (typeVal === "user_review" ? "Người dùng đánh giá" : "Cảnh báo Phishing")
           })
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);

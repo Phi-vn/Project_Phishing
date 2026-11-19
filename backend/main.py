@@ -937,6 +937,8 @@ class CreateFeedbackRequest(BaseModel):
     reason: str
     email: Optional[str] = "user@phisharmor.vn"
     report_type: Optional[str] = "false_positive"
+    confidence_score: Optional[float] = None
+    ai_prediction: Optional[str] = None
 
 class ActionFeedbackRequest(BaseModel):
     action: str
@@ -1090,6 +1092,9 @@ async def create_feedback(payload: CreateFeedbackRequest, db: Session = Depends(
     elif "facebook" in clean_domain: target_brand = "Meta / Facebook"
     elif "evn" in clean_domain: target_brand = "Điện Lực EVN"
     
+    pred_label = payload.ai_prediction or ("An toàn (Dùng thử)" if payload.report_type == "user_review" else "Cảnh báo Phishing")
+    pred_conf = payload.confidence_score if payload.confidence_score is not None else 85.0
+
     new_report = models.FeedbackReport(
         report_code=report_code,
         url=url,
@@ -1102,8 +1107,8 @@ async def create_feedback(payload: CreateFeedbackRequest, db: Session = Depends(
         reporter_ip="113.185.42.19",
         reporter_country="Vietnam (Hà Nội)",
         extension_version="v1.4.2 (Chrome)",
-        ai_prediction="Cảnh báo chặn bởi PhishArmor",
-        confidence_score=85.0,
+        ai_prediction=pred_label,
+        confidence_score=pred_conf,
         shap_reasons=json.dumps([
             {"name": f"Báo cáo người dùng gửi từ trang chặn ({payload.report_type})", "impact": "risk" if payload.report_type == "false_negative" else "safe", "weight": 50}
         ], ensure_ascii=False),
@@ -1478,25 +1483,43 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
     for idx, fb in enumerate(feedbacks, 1):
         label, color, bg = type_labels.get(fb.report_type or "", (fb.report_type or "Khác", "#475569", "#f1f5f9"))
         ts = (fb.timestamp + datetime.timedelta(hours=7)).strftime("%d/%m/%Y %H:%M") if fb.timestamp else ""
+        conf_val = round(fb.confidence_score or 0)
+        ai_pred = fb.ai_prediction or "Đã quét"
+        if "Lừa đảo" in ai_pred or (fb.confidence_score and fb.confidence_score <= 45):
+            ai_badge = f"<span class='badge' style='color:#e11d48;background:#fff1f2'>{html.escape(ai_pred)} ({conf_val}%)</span>"
+        elif "Nghi vấn" in ai_pred or (50 <= conf_val < 80):
+            ai_badge = f"<span class='badge' style='color:#d97706;background:#fffbeb'>{html.escape(ai_pred)} ({conf_val}/100)</span>"
+        else:
+            ai_badge = f"<span class='badge' style='color:#059669;background:#ecfdf5'>{html.escape(ai_pred)} ({conf_val}%)</span>"
+
         fb_rows.append(
             f"<tr>"
             f"<td>{idx}</td>"
             f"<td><strong>{html.escape(fb.reporter_user or 'Ẩn danh')}</strong><br><span class='muted'>{ts}</span></td>"
             f"<td><span class='badge' style='color:{color};background:{bg}'>{html.escape(label)}</span></td>"
+            f"<td>{ai_badge}</td>"
             f"<td class='comment'>{html.escape(fb.user_comment or '')}</td>"
             f"<td class='url'>{html.escape(fb.url or '')}</td>"
             f"</tr>"
         )
 
     if not fb_rows:
-        fb_table_body = "<tr><td colspan='5' style='text-align:center;color:#64748b;padding:24px'>Chưa có nhận xét nào. Khi bạn bè bấm gửi phản hồi trong tiện ích, nội dung sẽ hiện ngay tại đây!</td></tr>"
+        fb_table_body = "<tr><td colspan='6' style='text-align:center;color:#64748b;padding:24px'>Chưa có nhận xét nào. Khi bạn bè bấm gửi phản hồi trong tiện ích, nội dung sẽ hiện ngay tại đây!</td></tr>"
     else:
         fb_table_body = "".join(fb_rows)
 
     scan_rows = []
     for s in recent_scans:
         ts = (s.timestamp + datetime.timedelta(hours=7)).strftime("%d/%m %H:%M") if s.timestamp else ""
-        badge = "<span class='badge' style='color:#e11d48;background:#fff1f2'>Nguy hiểm</span>" if s.is_phishing else "<span class='badge' style='color:#059669;background:#ecfdf5'>An toàn</span>"
+        conf = round(s.confidence or 0)
+        is_phish = s.is_phishing or (s.label and "Lừa đảo" in s.label)
+        is_warn = (s.label and "Nghi vấn" in s.label) or (50 <= conf < 80 and not is_phish)
+        if is_phish:
+            badge = f"<span class='badge' style='color:#e11d48;background:#fff1f2'>Nguy hiểm ({conf}%)</span>"
+        elif is_warn:
+            badge = f"<span class='badge' style='color:#d97706;background:#fffbeb'>Nghi vấn ({conf}/100)</span>"
+        else:
+            badge = f"<span class='badge' style='color:#059669;background:#ecfdf5'>An toàn ({conf}%)</span>"
         scan_rows.append(
             f"<tr><td>{ts}</td><td>{badge}</td><td class='url'>{html.escape(s.url or '')}</td><td>{html.escape(s.label or '')}</td></tr>"
         )
@@ -1549,14 +1572,14 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
     <div class="card">
       <h2>💬 Danh sách Phản hồi & Nhận xét từ Người dùng thử</h2>
       <table>
-        <thead><tr><th>#</th><th>Người gửi & Thời gian</th><th>Loại</th><th>Nội dung nhận xét / đánh giá</th><th>URL đang mở</th></tr></thead>
+        <thead><tr><th>#</th><th>Người gửi & Thời gian</th><th>Loại</th><th>Đánh giá AI & Điểm</th><th>Nội dung nhận xét / đánh giá</th><th>URL đang mở</th></tr></thead>
         <tbody>{fb_table_body}</tbody>
       </table>
     </div>
     <div class="card">
       <h2>🔍 20 lượt quét gần nhất</h2>
       <table>
-        <thead><tr><th>Thời gian (VN)</th><th>Kết quả</th><th>URL</th><th>Phân loại</th></tr></thead>
+        <thead><tr><th>Thời gian (VN)</th><th>Kết quả & Điểm</th><th>URL</th><th>Phân loại</th></tr></thead>
         <tbody>{scan_table_body}</tbody>
       </table>
     </div>
@@ -1574,10 +1597,10 @@ def export_feedback_csv(key: Optional[str] = Query(default=None), db: Session = 
     buf = io.StringIO()
     buf.write("\ufeff")
     writer = csv.writer(buf)
-    writer.writerow(["STT", "MaBaoCao", "ThoiGianVN", "NguoiGui", "LoaiPhanHoi", "NoiDungNhanXet", "URL"])
+    writer.writerow(["STT", "MaBaoCao", "ThoiGianVN", "NguoiGui", "LoaiPhanHoi", "DanhGiaAI", "DiemTinCay", "NoiDungNhanXet", "URL"])
     for idx, fb in enumerate(feedbacks, 1):
         ts = (fb.timestamp + datetime.timedelta(hours=7)).strftime("%Y-%m-%d %H:%M:%S") if fb.timestamp else ""
-        writer.writerow([idx, fb.report_code, ts, fb.reporter_user, fb.report_type, fb.user_comment, fb.url])
+        writer.writerow([idx, fb.report_code, ts, fb.reporter_user, fb.report_type, fb.ai_prediction or "Đã quét", f"{round(fb.confidence_score or 0)}/100", fb.user_comment, fb.url])
     buf.seek(0)
     return StreamingResponse(
         iter([buf.getvalue()]),
@@ -1726,6 +1749,7 @@ def web_tester_portal():
 </div>
 
 <script>
+let lastScanResult = null;
 function setSample(url) {
   document.getElementById('url-input').value = url;
   scanUrl();
@@ -1757,6 +1781,7 @@ async function scanUrl() {
 }
 
 function renderResult(data, latencyMs) {
+  lastScanResult = data;
   const box = document.getElementById('result-box');
   box.style.display = 'block';
 
@@ -1838,7 +1863,9 @@ async function submitFeedback() {
         url: currentUrl,
         report_type: 'user_review',
         reason: `[Đánh giá ${rating}/5 sao] ${comment}`,
-        email: name
+        email: name,
+        confidence_score: lastScanResult ? (lastScanResult.trust_score !== undefined ? lastScanResult.trust_score : (lastScanResult.is_phishing ? 5 : 95)) : 95,
+        ai_prediction: lastScanResult ? (lastScanResult.label || 'Đã quét') : 'Đã quét'
       })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);

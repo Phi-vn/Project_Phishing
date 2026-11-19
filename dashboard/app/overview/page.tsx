@@ -858,11 +858,11 @@ export default function OverviewPage() {
                             <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5">
                               <div 
                                 className={`h-full rounded-full ${
-                                  item.confidence >= 80 
+                                  item.category === 'blocked'
                                     ? 'bg-gradient-to-r from-rose-500 to-rose-400' 
-                                    : item.confidence >= 50 
+                                    : item.category === 'warning'
                                     ? 'bg-gradient-to-r from-amber-500 to-amber-400' 
-                                    : 'bg-gradient-to-r from-sky-500 to-blue-500'
+                                    : 'bg-gradient-to-r from-emerald-500 to-teal-400'
                                 }`} 
                                 style={{ width: `${item.confidence}%` }}
                               />
