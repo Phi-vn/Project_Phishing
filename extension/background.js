@@ -43,7 +43,8 @@ const CLIENT_SAFE_DOMAINS = [
   "dantri.com.vn", "baomoi.com", "wikipedia.org", "claude.ai", "openai.com",
   "chatgpt.com", "vietcombank.com.vn", "mbbank.com.vn", "techcombank.com.vn",
   "bidv.com.vn", "acb.com.vn", "shopee.vn", "lazada.vn", "tiki.vn",
-  "dichvucong.gov.vn", "chinhphu.vn", "vneid.gov.vn"
+  "dichvucong.gov.vn", "chinhphu.vn", "vneid.gov.vn", "vercel.com", "vercel.app",
+  "github.dev", "supabase.co", "cloudflare.com", "render.com", "huggingface.co"
 ];
 
 const TARGET_BRANDS = [

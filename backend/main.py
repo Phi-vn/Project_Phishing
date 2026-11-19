@@ -156,7 +156,12 @@ DEFAULT_SETTINGS = {
         "chatgpt.com",
         "claude.ai",
         "render.com",
-        "huggingface.co"
+        "huggingface.co",
+        "vercel.com",
+        "vercel.app",
+        "github.dev",
+        "supabase.co",
+        "cloudflare.com"
     ],
     "blacklist": [
         "yourbnk-secure-login.net",
@@ -1544,19 +1549,49 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
     scan_rows = []
     for s in recent_scans:
         ts = (s.timestamp + datetime.timedelta(hours=7)).strftime("%d/%m %H:%M") if s.timestamp else ""
-        conf = round(s.confidence or 0)
+        raw_conf = round(s.confidence or 0)
         is_phish = s.is_phishing or (s.label and "Lừa đảo" in s.label)
-        is_warn = (s.label and "Nghi vấn" in s.label) or (50 <= conf < 80 and not is_phish)
+        is_warn = (s.label and "Nghi vấn" in s.label) or (50 <= raw_conf < 80 and not is_phish)
+
         if is_phish:
-            badge = f"<span class='badge' style='color:#e11d48;background:#fff1f2'>Nguy hiểm ({conf}%)</span>"
+            # Quy chuẩn sang Thang điểm An toàn Trust Score đồng nhất (0 đến 100):
+            # Nguy cơ 95% -> Điểm an toàn 5/100
+            # Nguy cơ 98% -> Điểm an toàn 2/100
+            # Nguy cơ 77% -> Điểm an toàn 23/100
+            trust_score = max(1, min(45, 100 - raw_conf))
+            badge = "<span class='badge' style='color:#e11d48;background:#fff1f2'>🚨 Nguy hiểm</span>"
+            score_badge = f"<span style='color:#e11d48;font-weight:800;font-size:13px'>{trust_score}/100</span>"
         elif is_warn:
-            badge = f"<span class='badge' style='color:#d97706;background:#fffbeb'>Nghi vấn ({conf}/100)</span>"
+            trust_score = raw_conf
+            badge = "<span class='badge' style='color:#d97706;background:#fffbeb'>⚠️ Nghi vấn</span>"
+            score_badge = f"<span style='color:#d97706;font-weight:800;font-size:13px'>{trust_score}/100</span>"
         else:
-            badge = f"<span class='badge' style='color:#059669;background:#ecfdf5'>An toàn ({conf}%)</span>"
+            trust_score = min(100, max(80, raw_conf))
+            badge = "<span class='badge' style='color:#059669;background:#ecfdf5'>✓ An toàn</span>"
+            score_badge = f"<span style='color:#059669;font-weight:800;font-size:13px'>{trust_score}/100</span>"
+
+        # Phân loại căn cứ chi tiết
+        note_str = s.note or (s.label or "Đã phân tích bởi AI")
+        if "[Whitelist]" in note_str:
+            reason_badge = "<span style='color:#059669;font-weight:600'>✓ Danh bạ Whitelist tin cậy</span>"
+        elif "VirusTotal" in note_str:
+            sub = note_str.split("]", 1)[-1].strip() if "]" in note_str else note_str
+            reason_badge = f"<span style='color:#e11d48;font-weight:600'>🚨 {html.escape(sub[:65])}</span>"
+        elif is_phish:
+            reason_badge = f"<span style='color:#e11d48;font-weight:600'>🚨 {html.escape(s.label or 'Phát hiện lừa đảo')}</span>"
+        else:
+            reason_badge = f"<span style='color:#059669;font-weight:600'>✓ {html.escape(s.label or 'An toàn')}</span>"
+
         scan_rows.append(
-            f"<tr><td>{ts}</td><td>{badge}</td><td class='url'>{html.escape(s.url or '')}</td><td>{html.escape(s.label or '')}</td></tr>"
+            f"<tr>"
+            f"<td>{ts}</td>"
+            f"<td>{badge}</td>"
+            f"<td style='text-align:center'>{score_badge}</td>"
+            f"<td class='url'><strong>{html.escape(s.url or '')}</strong></td>"
+            f"<td>{reason_badge}</td>"
+            f"</tr>"
         )
-    scan_table_body = "".join(scan_rows) if scan_rows else "<tr><td colspan='4' style='text-align:center;color:#64748b;padding:18px'>Chưa có lượt quét nào.</td></tr>"
+    scan_table_body = "".join(scan_rows) if scan_rows else "<tr><td colspan='5' style='text-align:center;color:#64748b;padding:18px'>Chưa có lượt quét nào.</td></tr>"
 
     safe_key = html.escape(key or "")
     page_html = f"""<!DOCTYPE html>
@@ -1619,9 +1654,17 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
       </table>
     </div>
     <div class="card">
-      <h2>🔍 20 lượt quét gần nhất</h2>
+      <h2>🔍 Lịch sử 20 lượt quét website gần nhất của AI (Giám định thời gian thực)</h2>
       <table>
-        <thead><tr><th>Thời gian (VN)</th><th>Kết quả & Điểm</th><th>URL</th><th>Phân loại</th></tr></thead>
+        <thead>
+          <tr>
+            <th style="width:110px">Thời gian (VN)</th>
+            <th style="width:125px">Đánh giá AI</th>
+            <th style="width:120px;text-align:center">Điểm an toàn</th>
+            <th>Địa chỉ URL kiểm tra</th>
+            <th style="width:280px">Căn cứ & Phân loại AI</th>
+          </tr>
+        </thead>
         <tbody>{scan_table_body}</tbody>
       </table>
     </div>
