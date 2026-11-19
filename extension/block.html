@@ -253,6 +253,16 @@
     .btn-bypass:hover {
       color: #fda4af;
     }
+    .disclaimer-note {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 14px;
+      line-height: 1.5;
+      text-align: center;
+      opacity: 0.85;
+      border-top: 1px dashed rgba(71, 85, 105, 0.4);
+      padding-top: 10px;
+    }
     .toast-msg {
       margin-top: 14px;
       padding: 10px 14px;
@@ -345,10 +355,15 @@
       </button>
     </div>
 
+    <p class="disclaimer-note" id="disclaimer-note">
+      * Lưu ý: Nếu bạn chọn tiếp tục truy cập (Bypass), bạn tự chấp nhận mọi rủi ro an toàn thông tin. Hệ thống PhishArmor được miễn trừ toàn bộ trách nhiệm đối với bất kỳ thiệt hại nào phát sinh.
+    </p>
+
     <div id="toast-msg" class="toast-msg" style="display: none;"></div>
 
   </div>
 
+  <script src="config.js"></script>
   <script src="block.js"></script>
 </body>
 </html>

@@ -456,6 +456,7 @@ def health_check():
 async def predict_url(data: URLRequest, db: Session = Depends(get_db)):
     url = str(data.url).strip()
     lower_url = url.lower()
+    norm_url = re.sub(r'^https?://', '', url, flags=re.IGNORECASE)
 
     # Nhận diện và bỏ qua các trang quản lý nội bộ của trình duyệt (chrome://, edge://, ...)
     if (
