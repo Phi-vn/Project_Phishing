@@ -229,8 +229,18 @@ DEFAULT_SETTINGS = {
         "telegram.org",
         "t.me",
         "microsoft.com",
-        "live.com",
+        "cloud.microsoft",
         "office.com",
+        "office365.com",
+        "live.com",
+        "onedrive.live.com",
+        "sharepoint.com",
+        "windows.net",
+        "microsoftonline.com",
+        "msftconnecttest.com",
+        "azure.com",
+        "azurewebsites.net",
+        "visualstudio.com",
         "bing.com",
         "msn.com",
         "ntp.msn.com",
@@ -253,7 +263,23 @@ DEFAULT_SETTINGS = {
         "vercel.com",
         "vercel.app",
         "supabase.co",
-        "cloudflare.com"
+        "cloudflare.com",
+        # Các trường đại học & Viễn thông tiêu biểu
+        "utc2.edu.vn",
+        "hcmut.edu.vn",
+        "hust.edu.vn",
+        "fpt.edu.vn",
+        "uit.edu.vn",
+        "tdtu.edu.vn",
+        "ueh.edu.vn",
+        "viettel.vn",
+        "vietteltelecom.vn",
+        "viettelpost.com.vn",
+        "vinaphone.com.vn",
+        "mobifone.vn",
+        "fpt.vn",
+        "fpt.com.vn",
+        "evn.com.vn"
     ],
     "blacklist": [
         "yourbnk-secure-login.net",
@@ -298,7 +324,9 @@ INFERENCE_CACHE: Dict[str, Any] = {}
 
 RISKY_TLDS = {
     ".click", ".top", ".xyz", ".cc", ".icu", ".gq", ".tk", ".ml", ".ga", ".cf",
-    ".rest", ".work", ".fit", ".buzz", ".monster", ".info", ".sbs", ".cam", ".store", ".online"
+    ".rest", ".work", ".fit", ".buzz", ".monster", ".info", ".sbs", ".cam", ".store",
+    ".online", ".vip", ".club", ".site", ".link", ".cfd", ".skin", ".live", ".racing",
+    ".bid", ".loan", ".date", ".faith", ".download", ".stream", ".trade", ".party", ".science"
 }
 import unicodedata
 
@@ -320,16 +348,21 @@ HOMOGLYPH_MAP = {
 }
 
 PROTECTED_BRANDS = {
-    "google": ["google.com", "google.com.vn"],
-    "facebook": ["facebook.com", "fb.com", "messenger.com"],
-    "meta": ["meta.com"],
-    "apple": ["apple.com", "icloud.com"],
-    "microsoft": ["microsoft.com", "live.com", "office.com", "bing.com", "msn.com"],
+    "google": ["google.com", "google.com.vn", "google.vn", "youtube.com", "gmail.com", "googleapis.com", "gstatic.com", "googleusercontent.com"],
+    "facebook": ["facebook.com", "fb.com", "messenger.com", "instagram.com", "threads.net", "whatsapp.com"],
+    "meta": ["meta.com", "facebook.com", "messenger.com", "instagram.com"],
+    "apple": ["apple.com", "icloud.com", "apple.co"],
+    "microsoft": [
+        "microsoft.com", "cloud.microsoft", "office.com", "office365.com",
+        "live.com", "onedrive.live.com", "sharepoint.com", "windows.net",
+        "microsoftonline.com", "msftconnecttest.com", "azure.com", "azurewebsites.net",
+        "bing.com", "msn.com", "github.com", "github.io", "github.dev", "visualstudio.com"
+    ],
     "netflix": ["netflix.com"],
     "paypal": ["paypal.com"],
-    "amazon": ["amazon.com"],
+    "amazon": ["amazon.com", "aws.amazon.com"],
     "telegram": ["telegram.org", "t.me"],
-    "zalo": ["zalo.me"],
+    "zalo": ["zalo.me", "chat.zalo.me"],
     "vietcombank": ["vietcombank.com.vn"],
     "mbbank": ["mbbank.com.vn"],
     "techcombank": ["techcombank.com.vn", "techcombank.com"],
@@ -338,19 +371,39 @@ PROTECTED_BRANDS = {
     "vpbank": ["vpbank.com.vn"],
     "tpbank": ["tpb.vn", "tpbank.com.vn"],
     "agribank": ["agribank.com.vn"],
+    "vib": ["vib.com.vn"],
+    "sacombank": ["sacombank.com.vn", "sacombank.com"],
+    "hdbank": ["hdbank.com.vn"],
+    "shb": ["shb.com.vn"],
+    "ocb": ["ocb.com.vn"],
+    "msb": ["msb.com.vn"],
+    "seabank": ["seabank.com.vn"],
     "momo": ["momo.vn"],
     "vnpay": ["vnpay.vn"],
+    "zalopay": ["zalopay.vn"],
     "shopee": ["shopee.vn", "shopee.com"],
     "tiki": ["tiki.vn"],
     "lazada": ["lazada.vn"],
-    "vneid": ["vneid.gov.vn", "dichvucong.gov.vn"],
-    "dichvucong": ["dichvucong.gov.vn", "chinhphu.vn"],
+    "vneid": ["vneid.gov.vn", "dichvucong.gov.vn", "chinhphu.vn"],
+    "dichvucong": ["dichvucong.gov.vn", "chinhphu.vn", "vneid.gov.vn"],
     "evn": ["evn.com.vn"],
-    "topcv": ["topcv.vn"]
+    "topcv": ["topcv.vn"],
+    "vietnamworks": ["vietnamworks.com"],
+    "itviec": ["itviec.com"],
+    "viettel": ["viettel.vn", "vietteltelecom.vn", "viettelpost.com.vn"]
 }
 
 def analyze_domain_spoofing(domain: str, raw_url: str):
     clean = domain.split(':')[0].lower()
+
+    # 0. Miễn trừ tuyệt đối cơ quan Nhà nước & Trường đại học/Giáo dục chính thống
+    if (
+        clean.endswith(".gov.vn") or clean == "gov.vn" or
+        clean.endswith(".edu.vn") or clean == "edu.vn" or
+        clean.endswith(".chinhphu.vn") or clean == "chinhphu.vn" or
+        clean.endswith(".gov") or clean.endswith(".edu")
+    ):
+        return None
     
     # Check Punycode decode (xn--)
     has_punycode = clean.startswith("xn--") or ".xn--" in clean
@@ -411,9 +464,43 @@ def analyze_domain_spoofing(domain: str, raw_url: str):
                 "reason": f"Phát hiện nhái thương hiệu bằng thay thế chữ số (Leetspeak Typosquatting) giả mạo '{brand.upper()}'"
             }
 
-        # 3. Kết hợp tên thương hiệu không chính chủ với từ khóa lừa đảo nhạy cảm
+        # 3. Kỹ thuật Subdomain Brand Hijacking (Chèn tên thương hiệu vào nhãn subdomain của tên miền lạ)
+        parts = clean.split('.')
+        subdomain_has_brand = any(brand in p for p in parts[:-2]) if len(parts) > 2 else False
+        if subdomain_has_brand:
+            return {
+                "is_spoof": True,
+                "type": "subdomain_hijack",
+                "brand": brand.upper(),
+                "reason": f"Kỹ thuật Subdomain Brand Hijacking: Chèn thương hiệu '{brand.upper()}' vào subdomain của tên miền lạ '{'.'.join(parts[-2:])}'"
+            }
+
+        # 4. Thương hiệu xuất hiện trên TLD rủi ro cao (Các ngân hàng/brand lớn không bao giờ đăng ký .top, .xyz, .click, .buzz...)
+        matched_risky = any(clean.endswith(t) for t in RISKY_TLDS)
+        if (brand in clean) and matched_risky:
+            return {
+                "is_spoof": True,
+                "type": "risky_tld_brand",
+                "brand": brand.upper(),
+                "reason": f"Tên miền sử dụng đuôi mở rộng rủi ro cao ({next((t for t in RISKY_TLDS if clean.endswith(t)), '')}) chứa thương hiệu '{brand.upper()}'"
+            }
+
+        # 5. Kết hợp tên thương hiệu không chính chủ với dấu gạch ngang (mb-bank, vcb-digibank, shopee-qua...)
+        if (f"{brand}-" in clean) or (f"-{brand}" in clean) or (f".{brand}" in clean):
+            return {
+                "is_spoof": True,
+                "type": "brand_hyphen_combo",
+                "brand": brand.upper(),
+                "reason": f"Tên miền không chính chủ cấu trúc tiền tố/hậu tố nhái thương hiệu '{brand.upper()}'"
+            }
+
+        # 6. Kết hợp tên thương hiệu không chính chủ với từ khóa lừa đảo nhạy cảm
         if brand in clean:
-            sensitive_words = ["login", "otp", "verify", "secure", "bank", "auth", "voucher", "gift", "xacthuc", "khuyenmai", "quatang", "sms", "cskh"]
+            sensitive_words = [
+                "login", "otp", "verify", "secure", "bank", "auth", "voucher", "gift",
+                "xacthuc", "khuyenmai", "quatang", "sms", "cskh", "dinhdanh", "kichhoat",
+                "traothuong", "vayvon", "giaingan", "khoathe", "vneid", "dvc"
+            ]
             full_check = (clean + " " + raw_url.lower())
             if any(w in full_check for w in sensitive_words):
                 return {
@@ -427,7 +514,11 @@ def analyze_domain_spoofing(domain: str, raw_url: str):
 
 SUSPICIOUS_WORDS = [
     'login', 'verify', 'update', 'banking', 'account',
-    'secure', 'webscr', 'signin', 'confirm', 'support'
+    'secure', 'webscr', 'signin', 'confirm', 'support',
+    'otp', 'auth', 'voucher', 'ebanking', 'portal',
+    'xacthuc', 'dinhdanh', 'kichhoat', 'biendong', 'sodu',
+    'nhanthuong', 'quatang', 'traothuong', 'vayvon', 'giaingan',
+    'khoathe', 'momatkhau', 'trungthuong', 'hoanthue', 'baohiem', 'vneid'
 ]
 
 def calculate_shannon_entropy(text: str) -> float:
@@ -773,25 +864,44 @@ async def predict_url(data: URLRequest, db: Session = Depends(get_db)):
         has_deep_subdomains = features[9] >= 2
         matched_tld = next((tld for tld in RISKY_TLDS if domain_clean.endswith(tld)), None)
 
+        # Nhận diện đường dẫn Phishing Tunnel ngầm (ngrok, duckdns, trycloudflare, loca.lt)
+        is_tunnel_host = any(
+            domain_clean.endswith(t) for t in [
+                ".ngrok-free.app", ".ngrok.io", ".duckdns.org", ".loca.lt",
+                ".trycloudflare.com", ".pagekite.me", ".telebit.io"
+            ]
+        )
+        is_tunnel_threat = is_tunnel_host and (has_sens_word or is_http_insecure or scheme != "https")
+
+        # Nhận diện Public IP Phishing trực tiếp (chạy thẳng bằng IP công cộng trên internet)
+        is_public_ip_threat = (
+            has_raw_ip and not is_local_host and (
+                is_http_insecure or has_sens_word or len(norm_url) > len(domain) + 1
+            )
+        )
+
         # 3-Tier Security Decision Architecture (Phân cấp quyết định 3 tầng an ninh linh hoạt):
         # Tầng 1: Vùng Đỏ (Phishing - Chặn cứng):
-        # - Bắt quả tang giả mạo thương hiệu (IDN Homograph/Font chữ nhái/Leetspeak/Combo lừa đảo)
-        # - Hoặc TLD rủi ro cao kết hợp từ khóa nhạy cảm / không an toàn
-        # - Hoặc Dùng địa chỉ IP thay vì tên miền kết hợp đường dẫn nhạy cảm hoặc không bảo mật
+        # - Bắt quả tang giả mạo thương hiệu (IDN Homograph/Font chữ nhái/Leetspeak/Subdomain Brand Hijacking/Combo)
+        # - Hoặc TLD rủi ro cao kết hợp từ khóa nhạy cảm / lừa đảo
+        # - Hoặc Chạy trực tiếp bằng IP công cộng (Public Raw IP Phishing Kits)
+        # - Hoặc Đường dẫn hầm ngầm Phishing Tunnel (ngrok, duckdns,...)
         # - Hoặc AI kết luận lừa đảo rất cao (p_phish >= 0.78) VÀ có ít nhất một yếu tố rủi ro thực tế
         # - Hoặc điểm an toàn rớt sâu dưới 30.0 VÀ có yếu tố rủi ro thực tế
         is_red_threat = (
             is_critical_spoof
             or (matched_tld and has_sens_word)
-            or (has_raw_ip and (has_sens_word or is_http_insecure))
+            or is_public_ip_threat
+            or is_tunnel_threat
             or (p_phish >= 0.78 and (has_sens_word or is_http_insecure or has_deep_subdomains or matched_tld))
             or (trust_score < 30.0 and (has_sens_word or is_http_insecure or matched_tld))
         )
 
         # Contextual Safeguard: Đối với website dùng HTTPS chuẩn, không nhái thương hiệu, không TLD rủi ro
-        # và không có từ khóa đánh cắp tài khoản -> tuyệt đối không chặn oan đại trà
-        if not is_red_threat and not matched_tld and not has_sens_word and scheme == "https":
-            trust_score = max(trust_score, 75.0)
+        # không phải IP lạ và không có từ khóa đánh cắp tài khoản -> đảm bảo tối thiểu 88.0% (Action: allow)
+        # Khắc phục triệt để việc chặn oan website chính thống và dịch vụ người dùng
+        if not is_red_threat and not matched_tld and not has_sens_word and not has_raw_ip and scheme == "https":
+            trust_score = max(trust_score, 88.0)
 
         if is_red_threat:
             is_phishing = True

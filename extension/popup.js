@@ -204,7 +204,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       currentDomain.includes("google") || currentDomain.includes("facebook") ||
       currentDomain.includes("vnexpress") || currentDomain.includes("youtube") ||
       currentDomain.includes("zalo") || currentDomain.includes("github") ||
-      currentDomain.includes("microsoft") || currentDomain.includes("wikipedia")
+      currentDomain.includes("microsoft") || currentDomain.includes("office") ||
+      currentDomain.includes("cloud.microsoft") || currentDomain.includes("wikipedia") ||
+      currentDomain.includes("topcv") || currentDomain.includes("vietnamworks") ||
+      currentDomain.endsWith(".gov.vn") || currentDomain.endsWith(".edu.vn") ||
+      currentDomain.endsWith(".chinhphu.vn") || currentDomain.endsWith(".gov") ||
+      currentDomain.endsWith(".edu")
     );
     if (isKnownFastSafe) {
       if (scoreDisplay) {

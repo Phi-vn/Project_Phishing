@@ -40,38 +40,52 @@ const IGNORED_HOSTS = [
 const CLIENT_SAFE_DOMAINS = [
   // Tuyển dụng & Việc làm
   "topcv.vn", "vietnamworks.com", "itviec.com", "careerviet.vn", "careerbuilder.vn",
-  "jobsgo.vn", "vieclam24h.vn", "timviec365.vn", "linkedin.com",
+  "jobsgo.vn", "vieclam24h.vn", "timviec365.vn", "glints.com", "linkedin.com",
 
   // Báo chí & Tin tức
   "vnexpress.net", "tuoitre.vn", "thanhnien.vn", "dantri.com.vn", "baomoi.com",
   "vietnamnet.vn", "znews.vn", "zingnews.vn", "vtv.vn", "vov.vn", "genk.vn", "tinhte.vn",
+  "laodong.vn", "tienphong.vn", "kenh14.vn", "cafef.vn", "cafebiz.vn", "soha.vn",
 
   // Thương mại điện tử & Chuỗi bán lẻ
   "shopee.vn", "shopee.com", "lazada.vn", "tiki.vn", "sendo.vn",
   "thegioididong.com", "dienmayxanh.com", "fptshop.com.vn", "cellphones.com.vn", "hoanghamobile.com",
 
   // Ngân hàng & Fintech
-  "vietcombank.com.vn", "mbbank.com.vn", "techcombank.com.vn", "bidv.com.vn",
+  "vietcombank.com.vn", "mbbank.com.vn", "techcombank.com.vn", "techcombank.com", "bidv.com.vn",
   "acb.com.vn", "vpbank.com.vn", "tpbank.com.vn", "tpb.vn", "agribank.com.vn",
-  "momo.vn", "vnpay.vn", "zalopay.vn",
+  "vib.com.vn", "sacombank.com.vn", "sacombank.com", "hdbank.com.vn", "shb.com.vn", "ocb.com.vn",
+  "msb.com.vn", "seabank.com.vn", "momo.vn", "vnpay.vn", "zalopay.vn",
 
-  // Cơ quan Nhà nước
+  // Cơ quan Nhà nước & Viễn thông
   "dichvucong.gov.vn", "chinhphu.vn", "vneid.gov.vn", "baohiemxahoi.gov.vn", "thuvienphapluat.vn",
+  "viettel.vn", "vietteltelecom.vn", "viettelpost.com.vn", "vinaphone.com.vn", "mobifone.vn", "fpt.vn", "evn.com.vn",
 
-  // Nền tảng Quốc tế & Công nghệ
-  "google.com", "google.com.vn", "youtube.com", "facebook.com", "github.com",
-  "microsoft.com", "zalo.me", "wikipedia.org", "claude.ai", "openai.com", "chatgpt.com",
+  // Nền tảng Quốc tế & Điện toán đám mây
+  "google.com", "google.com.vn", "youtube.com", "facebook.com", "fb.com", "messenger.com", "instagram.com", "github.com",
+  "microsoft.com", "cloud.microsoft", "office.com", "office365.com", "live.com", "onedrive.live.com",
+  "sharepoint.com", "windows.net", "microsoftonline.com", "azure.com", "visualstudio.com",
+  "zalo.me", "chat.zalo.me", "wikipedia.org", "claude.ai", "openai.com", "chatgpt.com",
   "gemini.google.com", "vercel.com", "vercel.app", "github.dev", "supabase.co",
-  "cloudflare.com", "render.com", "huggingface.co", "canva.com", "figma.com"
+  "cloudflare.com", "render.com", "huggingface.co", "canva.com", "figma.com", "apple.com", "icloud.com"
 ];
 
 const TARGET_BRANDS = [
   "mbbank", "vietcombank", "techcombank", "bidv", "acb", "vpbank", "tpbank",
-  "agribank", "shopee", "facebook", "vneid", "vnpay", "momo", "apple", "google", "topcv"
+  "agribank", "vib", "sacombank", "shopee", "facebook", "vneid", "dichvucong",
+  "vnpay", "momo", "apple", "google", "microsoft", "topcv", "viettel"
+];
+
+const CLIENT_RISKY_TLDS = [
+  ".click", ".top", ".xyz", ".cc", ".icu", ".buzz", ".monster", ".sbs", ".cam",
+  ".store", ".online", ".vip", ".club", ".site", ".link", ".cfd", ".skin", ".live",
+  ".racing", ".bid", ".loan", ".rest", ".work", ".fit", ".tk", ".ml", ".ga", ".cf", ".gq"
 ];
 
 const SENSITIVE_TRIGGERS = [
-  "login", "verify", "otp", "auth", "secure", "bank", "voucher", "quatang", "xacthuc", "ebanking"
+  "login", "verify", "otp", "auth", "secure", "bank", "voucher", "quatang", "xacthuc",
+  "ebanking", "dinhdanh", "kichhoat", "biendong", "sodu", "nhanthuong", "traothuong",
+  "vayvon", "giaingan", "khoathe", "momatkhau", "vneid", "dvc"
 ];
 
 // Động cơ phân tích tức thì Client-side (Instant Heuristic Engine < 1ms)
@@ -83,10 +97,11 @@ function clientFastInspect(targetUrl) {
     const cleanHost = host.replace("www.", "");
     const fullUrl = targetUrl.toLowerCase();
 
-    // 1. Kiểm tra mạng nội bộ, Cơ quan Nhà nước / Giáo dục (.gov.vn, .edu.vn) & Whitelist tức thì
+    // 1. Kiểm tra mạng nội bộ, Cơ quan Nhà nước / Giáo dục (.gov.vn, .edu.vn, .gov, .edu) & Whitelist tức thì
     const isGovOrEdu = cleanHost.endsWith(".gov.vn") || cleanHost === "gov.vn" ||
                        cleanHost.endsWith(".edu.vn") || cleanHost === "edu.vn" ||
-                       cleanHost.endsWith(".chinhphu.vn") || cleanHost === "chinhphu.vn";
+                       cleanHost.endsWith(".chinhphu.vn") || cleanHost === "chinhphu.vn" ||
+                       cleanHost.endsWith(".gov") || cleanHost.endsWith(".edu");
     if (
       host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host === "::1" ||
       host.startsWith("192.168.") || host.startsWith("10.") ||
@@ -98,7 +113,7 @@ function clientFastInspect(targetUrl) {
         trust_score: 99.0,
         action: "allow",
         label: isGovOrEdu ? "An toàn (Cơ quan Nhà nước / Giáo dục)" : "An toàn (Xác thực tức thì)",
-        note: isGovOrEdu ? "Tên miền cơ quan nhà nước / giáo dục được bảo chứng." : "Tên miền uy tín đạt chuẩn an toàn cao."
+        note: isGovOrEdu ? "Tên miền cơ quan nhà nước / giáo dục được bảo chứng pháp lý." : "Tên miền uy tín đạt chuẩn an toàn cao."
       };
     }
 
@@ -113,11 +128,49 @@ function clientFastInspect(targetUrl) {
       };
     }
 
-    // 3. Bắt tức thì Tên miền mạo danh thương hiệu kết hợp từ khóa nhạy cảm
+    // 3. Bắt tức thì Subdomain Brand Hijacking & Nhái thương hiệu trên các đường dẫn lạ
+    const hostParts = cleanHost.split('.');
+    const isRiskyTld = CLIENT_RISKY_TLDS.some(t => cleanHost.endsWith(t));
+
     for (const brand of TARGET_BRANDS) {
       if (cleanHost.includes(brand)) {
         const isOfficial = CLIENT_SAFE_DOMAINS.some(d => cleanHost === d || cleanHost.endsWith("." + d));
         if (!isOfficial) {
+          // A. Tên miền chứa thương hiệu trên TLD giá rẻ rủi ro cao (.top, .xyz, .click, .buzz...)
+          if (isRiskyTld) {
+            return {
+              is_phishing: true,
+              trust_score: 5.0,
+              action: "block",
+              label: "Lừa đảo (Nhái thương hiệu trên TLD rủi ro)",
+              note: `Tên miền không chính chủ sử dụng đuôi mở rộng rủi ro chứa thương hiệu '${brand.toUpperCase()}'.`
+            };
+          }
+
+          // B. Subdomain Brand Hijacking (Chèn thương hiệu vào subdomain của tên miền lạ)
+          const inSubdomain = hostParts.length > 2 && hostParts.slice(0, -2).some(p => p.includes(brand));
+          if (inSubdomain) {
+            return {
+              is_phishing: true,
+              trust_score: 5.0,
+              action: "block",
+              label: "Lừa đảo (Subdomain Brand Hijacking)",
+              note: `Kỹ thuật chèn thương hiệu '${brand.toUpperCase()}' vào subdomain của tên miền lạ '${hostParts.slice(-2).join('.')}'.`
+            };
+          }
+
+          // C. Cấu trúc tiền tố/hậu tố gạch ngang (brand-, -brand)
+          if (cleanHost.includes(`${brand}-`) || cleanHost.includes(`-${brand}`)) {
+            return {
+              is_phishing: true,
+              trust_score: 5.0,
+              action: "block",
+              label: "Lừa đảo (Cấu trúc nhái thương hiệu)",
+              note: `Tên miền sử dụng cấu trúc tiền tố/hậu tố giả mạo thương hiệu '${brand.toUpperCase()}'.`
+            };
+          }
+
+          // D. Kết hợp thương hiệu với từ khóa nhạy cảm
           const hasTrigger = SENSITIVE_TRIGGERS.some(t => fullUrl.includes(t));
           if (hasTrigger) {
             return {
@@ -129,6 +182,54 @@ function clientFastInspect(targetUrl) {
             };
           }
         }
+      }
+    }
+
+    // 4. Bắt TLD rủi ro cao kết hợp từ khóa lừa đảo
+    if (isRiskyTld) {
+      const hasTrigger = SENSITIVE_TRIGGERS.some(t => fullUrl.includes(t));
+      if (hasTrigger) {
+        return {
+          is_phishing: true,
+          trust_score: 5.0,
+          action: "block",
+          label: "Lừa đảo (TLD rủi ro + Từ khóa nhạy cảm)",
+          note: "Tên miền sử dụng đuôi mở rộng rủi ro kết hợp từ khóa nhạy cảm thường gặp trong tấn công lừa đảo."
+        };
+      }
+    }
+
+    // 5. Bắt đường dẫn chạy trực tiếp bằng IP công cộng (Public Raw IP Phishing)
+    const isPublicIp = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(cleanHost) &&
+                       !cleanHost.startsWith("127.") && !cleanHost.startsWith("192.168.") &&
+                       !cleanHost.startsWith("10.") && !cleanHost.startsWith("0.");
+    if (isPublicIp) {
+      const hasTrigger = SENSITIVE_TRIGGERS.some(t => fullUrl.includes(t));
+      if (hasTrigger || !urlObj.protocol.startsWith("https") || urlObj.pathname.length > 1) {
+        return {
+          is_phishing: true,
+          trust_score: 5.0,
+          action: "block",
+          label: "Lừa đảo (Public IP Phishing)",
+          note: "Phát hiện truy cập cổng xác thực trực tiếp qua địa chỉ IP máy chủ công cộng không có tên miền bảo chứng."
+        };
+      }
+    }
+
+    // 6. Bắt đường dẫn hầm ngầm tạm thời (Phishing Tunnel: ngrok, duckdns, loca.lt, trycloudflare)
+    const isTunnelHost = cleanHost.endsWith(".ngrok-free.app") || cleanHost.endsWith(".ngrok.io") ||
+                         cleanHost.endsWith(".duckdns.org") || cleanHost.endsWith(".loca.lt") ||
+                         cleanHost.endsWith(".trycloudflare.com");
+    if (isTunnelHost) {
+      const hasTrigger = SENSITIVE_TRIGGERS.some(t => fullUrl.includes(t));
+      if (hasTrigger) {
+        return {
+          is_phishing: true,
+          trust_score: 5.0,
+          action: "block",
+          label: "Lừa đảo (Phishing Tunnel)",
+          note: "Phát hiện đường dẫn hầm ngầm tạm thời che giấu máy chủ phishing đánh cắp thông tin."
+        };
       }
     }
 
