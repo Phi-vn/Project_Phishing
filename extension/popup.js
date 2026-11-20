@@ -530,6 +530,154 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // --- Hộp Thư Thông Báo Từ Ban Quản Trị (Admin Resolution & Notifications) ---
+  const btnNotifBell = document.getElementById('btn-notif-bell');
+  const notifBadgeCount = document.getElementById('notif-badge-count');
+  const notifDrawer = document.getElementById('notifications-drawer');
+  const closeNotifDrawer = document.getElementById('close-notifications-drawer');
+  const notifList = document.getElementById('notifications-list');
+  const btnMarkAllRead = document.getElementById('btn-mark-all-read');
+
+  const apiBase = (typeof PHISHARMOR_API_BASE !== "undefined") ? PHISHARMOR_API_BASE : "http://127.0.0.1:8000";
+
+  const updateNotifBadge = (unreadCount) => {
+    if (notifBadgeCount) {
+      if (unreadCount > 0) {
+        notifBadgeCount.style.display = 'inline-block';
+        notifBadgeCount.innerText = unreadCount > 9 ? '9+' : String(unreadCount);
+      } else {
+        notifBadgeCount.style.display = 'none';
+        notifBadgeCount.innerText = '0';
+      }
+    }
+    try {
+      if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({ action: "sync_notif_count", unreadCount });
+      }
+    } catch (e) {}
+  };
+
+  const renderNotificationsList = (items) => {
+    if (!notifList) return;
+    if (!items || items.length === 0) {
+      notifList.innerHTML = `
+        <div style="text-align: center; color: #64748b; padding: 30px 10px; font-size: 11px;">
+          <div style="font-size: 26px; margin-bottom: 8px;">✨</div>
+          <b style="color: #1e293b; font-size: 12px;">Chưa có phản hồi mới từ Admin</b><br>
+          <span style="color: #94a3b8; font-size: 10.5px; display: inline-block; margin-top: 4px;">
+            Khi bạn báo chặn nhầm hoặc gửi góp ý, quyết định duyệt an toàn của Admin sẽ được gửi về đây.
+          </span>
+        </div>
+      `;
+      return;
+    }
+
+    notifList.innerHTML = items.map(n => {
+      const isUnread = !n.user_viewed;
+      return `
+        <div class="notif-card" data-code="${n.report_code}" style="background: ${isUnread ? '#f0fdf4' : '#ffffff'}; border: 1px solid ${isUnread ? '#86efac' : '#e2e8f0'}; border-radius: 10px; padding: 10px 12px; margin-bottom: 9px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); transition: all 0.2s ease;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+            <div style="font-weight: 700; font-size: 11px; color: ${isUnread ? '#15803d' : '#334155'}; display: flex; align-items: center; gap: 4px;">
+              <span>✅</span>
+              <span>Đã duyệt an toàn & Đưa vào Whitelist</span>
+              ${isUnread ? '<span style="background: #22c55e; color: #ffffff; font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: 4px; margin-left: 4px;">MỚI</span>' : ''}
+            </div>
+            <span style="font-size: 9.5px; color: #94a3b8; white-space: nowrap;">${n.time || ''}</span>
+          </div>
+          <div style="font-size: 11px; color: #0f172a; font-weight: 600; margin-bottom: 4px; word-break: break-all;">
+            🌐 <span>${n.domain || n.url}</span>
+          </div>
+          <div style="font-size: 10.5px; color: #334155; line-height: 1.45; background: ${isUnread ? '#ffffff' : '#f8fafc'}; padding: 6px 9px; border-radius: 6px; border-left: 3px solid #22c55e; margin: 5px 0;">
+            <b style="color: #15803d;">Admin phản hồi:</b> ${n.admin_reply || 'Quản trị viên đã kiểm tra và phê duyệt an toàn. Tên miền đã được cập nhật vào Danh bạ Whitelist.'}
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-top: 4px; border-top: 1px dashed #e2e8f0;">
+            <span style="font-size: 9.5px; color: #64748b;">Mã: #${n.report_code}</span>
+            ${isUnread ? `
+              <button class="btn-mark-viewed" data-code="${n.report_code}" style="background: #0f172a; color: #ffffff; border: none; border-radius: 6px; padding: 3px 9px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
+                ✓ Đã xem
+              </button>
+            ` : `
+              <span style="font-size: 10px; color: #94a3b8; font-weight: 600;">✓ Đã đọc</span>
+            `}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Bắt sự kiện khi người dùng nhấn "✓ Đã xem" từng thông báo
+    notifList.querySelectorAll('.btn-mark-viewed').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const code = btn.getAttribute('data-code');
+        btn.disabled = true;
+        btn.innerText = 'Đang lưu...';
+        try {
+          const res = await fetch(`${apiBase}/api/feedback/${code}/mark-viewed`, { method: 'POST' });
+          if (res.ok) {
+            const data = await res.json();
+            updateNotifBadge(data.unread_count !== undefined ? data.unread_count : 0);
+            fetchNotifications(false);
+          }
+        } catch (err) {
+          console.warn('Could not mark viewed:', err);
+          btn.disabled = false;
+          btn.innerText = '✓ Đã xem';
+        }
+      });
+    });
+  };
+
+  const fetchNotifications = async (openDrawer = false) => {
+    try {
+      const res = await fetch(`${apiBase}/api/feedback/notifications`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.status === 'success') {
+        const unread = data.unread_count !== undefined ? data.unread_count : 0;
+        updateNotifBadge(unread);
+        renderNotificationsList(data.notifications || []);
+      }
+    } catch (e) {
+      console.warn('Could not fetch notifications:', e);
+      if (notifList && openDrawer) {
+        notifList.innerHTML = '<div style="text-align: center; color: #ef4444; padding: 20px 0; font-size: 11px;">Không kết nối được máy chủ để lấy thông báo.</div>';
+      }
+    }
+  };
+
+  if (btnNotifBell && notifDrawer) {
+    btnNotifBell.addEventListener('click', () => {
+      notifDrawer.classList.add('active');
+      fetchNotifications(true);
+    });
+  }
+  if (closeNotifDrawer && notifDrawer) {
+    closeNotifDrawer.addEventListener('click', () => notifDrawer.classList.remove('active'));
+    notifDrawer.addEventListener('click', (e) => {
+      if (e.target === notifDrawer) notifDrawer.classList.remove('active');
+    });
+  }
+  if (btnMarkAllRead) {
+    btnMarkAllRead.addEventListener('click', async () => {
+      btnMarkAllRead.disabled = true;
+      btnMarkAllRead.innerText = 'Đang lưu...';
+      try {
+        const res = await fetch(`${apiBase}/api/feedback/mark-all-viewed`, { method: 'POST' });
+        if (res.ok) {
+          updateNotifBadge(0);
+          fetchNotifications(false);
+        }
+      } catch (e) {
+        console.warn('Could not mark all viewed:', e);
+      } finally {
+        btnMarkAllRead.disabled = false;
+        btnMarkAllRead.innerText = 'Đã đọc tất cả';
+      }
+    });
+  }
+
+  // Tự động kiểm tra thông báo khi mở popup
+  fetchNotifications(false);
+
   // Chạy quét tự động ngay khi mở popup
   runAnalysis();
 });

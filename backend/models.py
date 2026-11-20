@@ -33,6 +33,8 @@ class FeedbackReport(Base):
     confidence_score = Column(Float, default=75.0)
     shap_reasons = Column(String, nullable=True)  # JSON string
     pushed_to_retrain = Column(Boolean, default=False)
+    admin_reply = Column(String, nullable=True)
+    user_viewed = Column(Boolean, default=False)
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
 
 class ModelVersion(Base):

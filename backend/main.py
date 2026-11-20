@@ -38,6 +38,23 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 # Tạo bảng trong DB
 models.Base.metadata.create_all(bind=engine)
 
+def auto_migrate_db():
+    try:
+        import sqlalchemy
+        with engine.connect() as conn:
+            res = conn.execute(sqlalchemy.text("PRAGMA table_info(feedback_reports)"))
+            cols = [r[1] for r in res.fetchall()]
+            if cols:
+                if "admin_reply" not in cols:
+                    conn.execute(sqlalchemy.text("ALTER TABLE feedback_reports ADD COLUMN admin_reply TEXT"))
+                if "user_viewed" not in cols:
+                    conn.execute(sqlalchemy.text("ALTER TABLE feedback_reports ADD COLUMN user_viewed BOOLEAN DEFAULT 0"))
+                conn.commit()
+    except Exception as e:
+        pass
+
+auto_migrate_db()
+
 app = FastAPI(title="Phishing Detection API with XAI & JWT")
 
 app.add_middleware(
@@ -1288,10 +1305,136 @@ async def batch_approve_feedback(db: Session = Depends(get_db)):
     count = len(pending)
     for r in pending:
         r.status = "safe" if r.report_type == "false_positive" else "phishing"
+        r.admin_reply = "Quản trị viên đã phê duyệt phản hồi của bạn. Cảm ơn bạn đã đóng góp!"
+        r.user_viewed = False
         r.pushed_to_retrain = True
     db.commit()
     await manager.broadcast("new_feedback")
     return {"status": "success", "message": f"Đã duyệt tự động thành công {count} báo cáo!", "count": count}
+
+class ResolveFeedbackRequest(BaseModel):
+    action: Optional[str] = "approved"
+    reply: Optional[str] = None
+
+@app.post("/api/feedback/{report_code}/resolve")
+async def resolve_feedback_endpoint(
+    report_code: str,
+    payload: ResolveFeedbackRequest = ResolveFeedbackRequest(),
+    key: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db)
+):
+    report = db.query(models.FeedbackReport).filter(
+        (models.FeedbackReport.report_code == report_code) | (models.FeedbackReport.id == report_code)
+    ).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Không tìm thấy phản hồi")
+
+    report.status = payload.action or "approved"
+    default_msg = f"Quản trị viên đã kiểm tra phản hồi #{report.report_code}. Đã xác thực an toàn và cập nhật Danh bạ Tin cậy (Whitelist)."
+    report.admin_reply = payload.reply or default_msg
+    report.user_viewed = False
+
+    # Nếu là báo chặn nhầm, tự động bổ sung tên miền vào Whitelist để bảo vệ
+    if report.domain and report.report_type == "false_positive":
+        c_dom = report.domain.replace("www.", "").lower()
+        active_wl = current_settings.get("whitelist", [])
+        if c_dom not in active_wl:
+            active_wl.append(c_dom)
+            current_settings["whitelist"] = active_wl
+            save_settings_to_file(current_settings)
+
+    now_utc = datetime.datetime.utcnow()
+    try:
+        scan_log = models.ScanRecord(
+            url=report.url,
+            domain=report.domain,
+            is_phishing=False,
+            label="An toàn (Đã duyệt SOC)",
+            confidence=99.9,
+            note=f"[Duyệt phản hồi #{report.report_code}] Admin đã thẩm định và phê duyệt an toàn. Đã đưa vào Whitelist.",
+            timestamp=now_utc
+        )
+        db.add(scan_log)
+    except Exception as e:
+        print("Error logging feedback resolve to ScanRecord:", e)
+
+    db.commit()
+
+    # Tính toán lại số lượng phản hồi còn chờ xử lý
+    remaining_pending = db.query(models.FeedbackReport).filter(models.FeedbackReport.status == "pending").count()
+
+    await manager.broadcast("new_feedback")
+    await manager.broadcast("new_scan")
+
+    return {
+        "status": "success",
+        "message": f"Đã duyệt thành công phản hồi #{report.report_code}!",
+        "pending_count": remaining_pending,
+        "report_code": report.report_code
+    }
+
+@app.get("/api/feedback/notifications")
+def get_user_notifications(
+    email: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    # Lấy các phản hồi đã được Admin xử lý (approved hoặc safe)
+    query = db.query(models.FeedbackReport).filter(
+        models.FeedbackReport.status.in_(["approved", "safe", "resolved"])
+    )
+    if isinstance(email, str) and email.strip() and email.strip().lower() not in ("anonymous@user.vn", "nguoidungthu", "ẩn danh"):
+        query = query.filter(models.FeedbackReport.reporter_user == email.strip())
+
+    resolved_reports = query.order_by(models.FeedbackReport.id.desc()).limit(15).all()
+    unread_count = sum(1 for r in resolved_reports if not bool(getattr(r, "user_viewed", False)))
+
+    notifs = []
+    for r in resolved_reports:
+        ts = (r.timestamp + datetime.timedelta(hours=7)).strftime("%d/%m %H:%M") if r.timestamp else ""
+        notifs.append({
+            "report_code": r.report_code,
+            "url": r.url,
+            "domain": r.domain,
+            "status": r.status,
+            "report_type": r.report_type,
+            "user_comment": r.user_comment,
+            "admin_reply": getattr(r, "admin_reply", None) or "Quản trị viên đã kiểm tra và phê duyệt an toàn. Tên miền đã được cập nhật vào Danh bạ Whitelist.",
+            "time": ts,
+            "user_viewed": bool(getattr(r, "user_viewed", False))
+        })
+
+    return {
+        "status": "success",
+        "unread_count": unread_count,
+        "notifications": notifs
+    }
+
+@app.post("/api/feedback/{report_code}/mark-viewed")
+def mark_notification_viewed(report_code: str, db: Session = Depends(get_db)):
+    report = db.query(models.FeedbackReport).filter(
+        (models.FeedbackReport.report_code == report_code) | (models.FeedbackReport.id == report_code)
+    ).first()
+    if report:
+        report.user_viewed = True
+        db.commit()
+
+    unread = db.query(models.FeedbackReport).filter(
+        models.FeedbackReport.status.in_(["approved", "safe", "resolved"]),
+        models.FeedbackReport.user_viewed == False
+    ).count()
+
+    return {"status": "success", "unread_count": unread}
+
+@app.post("/api/feedback/mark-all-viewed")
+def mark_all_notifications_viewed(db: Session = Depends(get_db)):
+    reports = db.query(models.FeedbackReport).filter(
+        models.FeedbackReport.status.in_(["approved", "safe", "resolved"]),
+        models.FeedbackReport.user_viewed == False
+    ).all()
+    for r in reports:
+        r.user_viewed = True
+    db.commit()
+    return {"status": "success", "unread_count": 0}
 
 
 # ==================== TRAINING & MODEL MANAGEMENT API ====================
@@ -1592,6 +1735,17 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
             if m_s:
                 ratings.append(int(m_s.group(1)))
     avg_rating_str = f"{round(sum(ratings) / len(ratings), 1)} / 5.0" if ratings else "5.0 / 5.0"
+    pending_count = len([fb for fb in feedbacks if getattr(fb, "status", "pending") == "pending"])
+
+    if pending_count > 0:
+        notif_badge_html = f"""<span id="admin-pending-pill" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:7px 14px;border-radius:10px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 6px #ef4444"></span>
+          🔔 <span id="pending-count-num" style="background:#ef4444;color:#fff;padding:2px 7px;border-radius:999px;font-size:11.5px">{pending_count}</span> ý kiến mới chờ duyệt
+        </span>"""
+    else:
+        notif_badge_html = """<span id="admin-pending-pill" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;padding:7px 14px;border-radius:10px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px">
+          ✓ Đã xử lý tất cả phản hồi (0 chờ duyệt)
+        </span>"""
 
     fb_rows = []
     for idx, fb in enumerate(feedbacks, 1):
@@ -1635,6 +1789,20 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
 
         ts = (fb.timestamp + datetime.timedelta(hours=7)).strftime("%d/%m/%Y %H:%M") if fb.timestamp else ""
 
+        is_pending = (getattr(fb, "status", "pending") == "pending")
+        if is_pending:
+            action_cell = f"""<div id="action-cell-{fb.report_code}" style="text-align:center">
+              <span class="badge" style="color:#b45309;background:#fef3c7;font-weight:700;margin-bottom:6px;display:inline-block">⏳ Chờ duyệt</span><br>
+              <button onclick="resolveAdminFeedback('{fb.report_code}')" style="background:#059669;color:#fff;border:none;padding:5px 10px;border-radius:7px;font-size:11.5px;font-weight:700;cursor:pointer;box-shadow:0 2px 4px rgba(5,150,105,0.25)">
+                ✅ Duyệt an toàn
+              </button>
+            </div>"""
+        else:
+            action_cell = f"""<div id="action-cell-{fb.report_code}" style="text-align:center">
+              <span class="badge" style="color:#059669;background:#ecfdf5;font-weight:700">✓ Đã duyệt xong</span>
+              <div style="font-size:10px;color:#059669;margin-top:3px;font-weight:600">🔔 Đã báo tiện ích</div>
+            </div>"""
+
         fb_rows.append(
             f"<tr>"
             f"<td style='text-align:center'>{idx}</td>"
@@ -1643,11 +1811,12 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
             f"<td style='text-align:center'>{type_badge}</td>"
             f"<td class='comment'>{html.escape(clean_cmt or 'Không có ghi chú thêm.')}</td>"
             f"<td class='url'>{html.escape(site_display)}<br>{site_badge}</td>"
+            f"<td style='text-align:center'>{action_cell}</td>"
             f"</tr>"
         )
 
     if not fb_rows:
-        fb_table_body = "<tr><td colspan='6' style='text-align:center;color:#64748b;padding:24px'>Chưa có nhận xét nào. Khi bạn bè bấm gửi phản hồi trong tiện ích, nội dung sẽ hiện ngay tại đây!</td></tr>"
+        fb_table_body = "<tr><td colspan='7' style='text-align:center;color:#64748b;padding:24px'>Chưa có nhận xét nào. Khi bạn bè bấm gửi phản hồi trong tiện ích, nội dung sẽ hiện ngay tại đây!</td></tr>"
     else:
         fb_table_body = "".join(fb_rows)
 
@@ -1660,9 +1829,6 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
 
         if is_phish:
             # Quy chuẩn sang Thang điểm An toàn Trust Score đồng nhất (0 đến 100):
-            # Nguy cơ 95% -> Điểm an toàn 5/100
-            # Nguy cơ 98% -> Điểm an toàn 2/100
-            # Nguy cơ 77% -> Điểm an toàn 23/100
             trust_score = max(1, min(45, 100 - raw_conf))
             badge = "<span class='badge' style='color:#e11d48;background:#fff1f2'>🚨 Nguy hiểm</span>"
             score_badge = f"<span style='color:#e11d48;font-weight:600;font-size:13px'>{trust_score}/100</span>"
@@ -1709,7 +1875,7 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
   .wrap{{max-width:1100px;margin:0 auto}}
   .topbar{{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px}}
   h1{{font-size:22px;margin:0;color:#0f172a}}
-  .actions{{display:flex;gap:10px}}
+  .actions{{display:flex;align-items:center;gap:10px}}
   .btn{{display:inline-block;padding:9px 15px;border-radius:10px;text-decoration:none;font-size:13px;font-weight:700}}
   .btn-primary{{background:#2563eb;color:#fff}}
   .btn-green{{background:#059669;color:#fff}}
@@ -1725,8 +1891,8 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
   td{{text-align:left}}
   .badge{{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}}
   .muted{{font-size:11px;color:#94a3b8}}
-  .comment{{white-space:pre-wrap;min-width:260px;line-height:1.5}}
-  .url{{word-break:break-all;max-width:260px;color:#334155}}
+  .comment{{white-space:pre-wrap;min-width:240px;line-height:1.5}}
+  .url{{word-break:break-all;max-width:220px;color:#334155}}
 </style>
 </head>
 <body>
@@ -1734,6 +1900,7 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
     <div class="topbar">
       <h1>🛡️ PhishArmor AI — Cổng Theo Dõi Dùng Thử (24/7)</h1>
       <div class="actions">
+        {notif_badge_html}
         <a class="btn btn-primary" href="/admin?key={safe_key}">🔄 Làm mới</a>
         <a class="btn btn-green" href="/admin/export-csv?key={safe_key}">📥 Tải Excel (.CSV)</a>
       </div>
@@ -1748,12 +1915,13 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
       <table>
         <thead>
           <tr>
-            <th style="width:40px">#</th>
-            <th style="width:175px">Người đánh giá & Thời gian</th>
-            <th style="width:135px">Mức độ hài lòng</th>
-            <th style="width:145px">Phân loại</th>
+            <th style="width:35px">#</th>
+            <th style="width:160px">Người đánh giá & Thời gian</th>
+            <th style="width:125px">Mức độ hài lòng</th>
+            <th style="width:135px">Phân loại</th>
             <th>Ý kiến nhận xét / Góp ý thực tế</th>
-            <th style="width:235px">Website / Kịch bản thử nghiệm</th>
+            <th style="width:215px">Website / Kịch bản thử nghiệm</th>
+            <th style="width:150px">Trạng thái & Thao tác</th>
           </tr>
         </thead>
         <tbody>{fb_table_body}</tbody>
@@ -1775,6 +1943,50 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
       </table>
     </div>
   </div>
+
+  <script>
+  async function resolveAdminFeedback(code) {{
+    const cell = document.getElementById('action-cell-' + code);
+    const btn = cell ? cell.querySelector('button') : null;
+    if (btn) {{
+      btn.disabled = true;
+      btn.innerText = 'Đang duyệt...';
+    }}
+    try {{
+      const res = await fetch('/api/feedback/' + code + '/resolve?key={safe_key}', {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/json'}},
+        body: JSON.stringify({{action: 'approved'}})
+      }});
+      if (res.ok) {{
+        if (cell) {{
+          cell.innerHTML = '<span class="badge" style="color:#059669;background:#ecfdf5;font-weight:700">✓ Đã duyệt xong</span><div style="font-size:10px;color:#059669;margin-top:3px;font-weight:600">🔔 Đã báo tiện ích</div>';
+        }}
+        const numEl = document.getElementById('pending-count-num');
+        if (numEl) {{
+          let val = parseInt(numEl.innerText) || 1;
+          val = Math.max(0, val - 1);
+          numEl.innerText = val;
+          if (val === 0) {{
+            const pill = document.getElementById('admin-pending-pill');
+            if (pill) {{
+              pill.style.background = '#ecfdf5';
+              pill.style.color = '#047857';
+              pill.style.border = '1px solid #a7f3d0';
+              pill.innerHTML = '✓ Đã xử lý tất cả phản hồi (0 chờ duyệt)';
+            }}
+          }}
+        }}
+      }} else {{
+        alert('Không thể duyệt: HTTP ' + res.status);
+        if (btn) {{ btn.disabled = false; btn.innerText = '✅ Duyệt an toàn'; }}
+      }}
+    }} catch (e) {{
+      alert('Lỗi kết nối: ' + e);
+      if (btn) {{ btn.disabled = false; btn.innerText = '✅ Duyệt an toàn'; }}
+    }}
+  }}
+  </script>
 </body>
 </html>"""
     return HTMLResponse(page_html)

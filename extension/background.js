@@ -266,9 +266,42 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
   }
 });
 
+// Biến theo dõi số lượng thông báo chưa đọc từ Admin
+let globalUnreadNotifications = 0;
+
+async function checkAdminNotifications() {
+  try {
+    const res = await fetch(`${PHISHARMOR_API_BASE}/api/feedback/notifications`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.status === "success") {
+      const unread = data.unread_count !== undefined ? data.unread_count : 0;
+      globalUnreadNotifications = unread;
+      if (unread > 0) {
+        chrome.action.setBadgeText({ text: String(unread) });
+        chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
+      } else {
+        chrome.action.setBadgeText({ text: "" });
+      }
+    }
+  } catch (e) {
+    // Không log lỗi nếu backend ngủ hoặc offline
+  }
+}
+
+// Khởi chạy kiểm tra định kỳ mỗi 30s
+checkAdminNotifications();
+setInterval(checkAdminNotifications, 30000);
+
 // 2. Lắng nghe thay đổi tab để cập nhật trạng thái
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   try {
+    if (globalUnreadNotifications > 0) {
+      chrome.action.setBadgeText({ text: String(globalUnreadNotifications), tabId: activeInfo.tabId });
+      chrome.action.setBadgeBackgroundColor({ color: "#2563eb", tabId: activeInfo.tabId });
+      return;
+    }
+
     const tab = await chrome.tabs.get(activeInfo.tabId);
     if (!tab || !tab.url || !tab.url.startsWith("http")) {
       chrome.action.setBadgeText({ text: "", tabId: activeInfo.tabId });
@@ -288,7 +321,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   } catch (e) {}
 });
 
-// 3. Lắng nghe tin nhắn từ trang Block (Xử lý Bypass mở khóa truy cập)
+// 3. Lắng nghe tin nhắn từ trang Block (Bypass) và Popup (Sync thông báo)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "bypass_url" && message.url) {
     try {
@@ -298,6 +331,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       bypassedUrls.add(u.href);
     } catch (e) {
       bypassedUrls.add(message.url);
+    }
+    sendResponse({ status: "ok" });
+  } else if (message.action === "sync_notif_count") {
+    const unread = message.unreadCount !== undefined ? message.unreadCount : 0;
+    globalUnreadNotifications = unread;
+    if (unread > 0) {
+      chrome.action.setBadgeText({ text: String(unread) });
+      chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
+    } else {
+      chrome.action.setBadgeText({ text: "" });
     }
     sendResponse({ status: "ok" });
   }

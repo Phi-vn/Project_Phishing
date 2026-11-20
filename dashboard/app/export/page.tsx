@@ -230,7 +230,7 @@ const TEMPLATES: Record<ReportType, TemplateContent> = {
 
 
 
-      status: "TRẠNG THÁI HỆ THỐNG: HOẠT ĐỘNG ỔN ĐỊNH • GIÁM SÁT 24/7",
+      status: "Trạng thái: Vận hành ổn định • Giám sát 24/7",
 
 
 
@@ -242,7 +242,7 @@ const TEMPLATES: Record<ReportType, TemplateContent> = {
 
 
 
-          Trong kỳ giám sát từ <strong>{dateRangeStr}</strong>, hệ thống PhishArmor đã thực hiện theo dõi liên tục các yêu cầu phân tích URL gửi về từ tiện ích mở rộng và cổng kiểm tra trực tiếp. Hệ thống ghi nhận và phân tích tự động tổng cộng <strong>12,840</strong> lượt kiểm tra, trong đó phát hiện và cảnh báo kịp thời <strong>324</strong> liên kết lừa đảo có chủ đích nhắm vào các cổng dịch vụ ngân hàng, ví điện tử và dịch vụ công. Toàn bộ các tên miền nguy hiểm đã được cập nhật vào danh sách ngăn chặn (Blacklist), giúp người dùng phòng tránh nguy cơ lộ lọt mật khẩu tài khoản và mã xác thực OTP.
+          Trong kỳ giám sát từ {dateRangeStr}, hệ thống PhishArmor đã thực hiện theo dõi liên tục các yêu cầu phân tích URL gửi về từ tiện ích mở rộng và cổng kiểm tra trực tiếp. Hệ thống ghi nhận và phân tích tự động tổng cộng 12,840 lượt kiểm tra, trong đó phát hiện và cảnh báo kịp thời 324 liên kết lừa đảo có chủ đích nhắm vào các cổng dịch vụ ngân hàng, ví điện tử và dịch vụ công. Toàn bộ các tên miền nguy hiểm đã được cập nhật vào danh sách ngăn chặn (Blacklist), giúp người dùng phòng tránh nguy cơ lộ lọt mật khẩu tài khoản và mã xác thực OTP.
 
 
 
@@ -453,7 +453,7 @@ const TEMPLATES: Record<ReportType, TemplateContent> = {
 
 
 
-      status: "SOC ALERT LEVEL: MITIGATED • ZERO ESCALATIONS",
+      status: "Tình trạng kỹ thuật: Bình thường (Đã kiểm soát)",
 
 
 
@@ -465,7 +465,7 @@ const TEMPLATES: Record<ReportType, TemplateContent> = {
 
 
 
-          Đội ngũ SOC đã tiến hành phân tích và vô hiệu hóa <strong>1,842</strong> chỉ số xâm nhập (IoC) trong kỳ <strong>{dateRangeStr}</strong>. Các chiến dịch sử dụng kỹ thuật <strong>Fast-Flux DNS</strong> kết hợp mã hóa trang đích bằng <strong>JavaScript Base64 đa tầng</strong>. 100% địa chỉ IP máy chủ C2 đã được tự động đồng bộ xuống Firewall và EDR để cô lập tức thì.
+          Đội ngũ SOC đã tiến hành phân tích và xử lý 1,842 chỉ số xâm nhập (IoC) trong kỳ {dateRangeStr}. Các chiến dịch sử dụng kỹ thuật Fast-Flux DNS kết hợp mã hóa trang đích bằng JavaScript Base64 đa tầng để che giấu hành vi. Toàn bộ các địa chỉ IP máy chủ điều khiển (C2) đã được cập nhật vào hệ thống tường lửa và giải pháp phòng vệ điểm cuối để cô lập tức thì.
 
 
 
@@ -509,7 +509,7 @@ const TEMPLATES: Record<ReportType, TemplateContent> = {
 
 
 
-      title: "III. Phân Bổ Vector Tấn Công Kỹ Thuật (Technical Attack Vectors)",
+      title: "III. Phân bổ các hình thức tấn công kỹ thuật",
 
 
 
@@ -541,7 +541,7 @@ const TEMPLATES: Record<ReportType, TemplateContent> = {
 
 
 
-      title: "IV. Danh Sách Tên Miền Độc Hại & Địa Chỉ IP C2 (IoC Table)",
+      title: "IV. Danh sách tên miền độc hại & địa chỉ IP máy chủ điều khiển",
 
 
 
@@ -585,7 +585,7 @@ const TEMPLATES: Record<ReportType, TemplateContent> = {
 
 
 
-      title: "V. Khuyến Nghị & Biện Pháp Kỹ Thuật SOC",
+      title: "V. Khuyến nghị & phương án kỹ thuật SOC",
 
 
 
@@ -685,7 +685,7 @@ const TEMPLATES: Record<ReportType, TemplateContent> = {
 
 
 
-      status: "MODEL STATUS: PRODUCTION READY • DRIFT INDEX: 0.012",
+      status: "Tình trạng mô hình: Đạt chuẩn thực nghiệm",
 
 
 
@@ -697,7 +697,7 @@ const TEMPLATES: Record<ReportType, TemplateContent> = {
 
 
 
-          Mô hình kết hợp <strong>PhoBERT Transformer + XGBoost</strong> đạt độ chính xác F1-Score vượt trội <strong>98.42%</strong> trên tập kiểm thử độc lập gồm 15,000 mẫu trong kỳ <strong>{dateRangeStr}</strong>. Khả năng phát hiện biến thể lừa đảo ngữ nghĩa và teencode tiếng Việt duy trì độ hội tụ cao. Tốc độ suy luận tối ưu hóa qua <strong>ONNX Runtime</strong> chỉ mất <strong>22.4ms/mẫu</strong> mà không gặp hiện tượng Overfitting.
+          Mô hình kết hợp PhoBERT Transformer và XGBoost đạt độ chính xác F1-Score 98.42% trên tập kiểm thử độc lập gồm 15,000 mẫu trong kỳ {dateRangeStr}. Khả năng nhận diện các biến thể lừa đảo ngữ nghĩa và teencode tiếng Việt duy trì độ hội tụ cao. Tốc độ suy luận tối ưu hóa qua ONNX Runtime đạt 22.4ms mỗi mẫu mà không gặp hiện tượng quá khớp (overfitting).
 
 
 
@@ -741,7 +741,7 @@ const TEMPLATES: Record<ReportType, TemplateContent> = {
 
 
 
-      title: "III. Tỷ Trọng Đóng Góp Của Nhóm Đặc Trưng (Feature Importance)",
+      title: "III. Tỷ trọng đóng góp của các nhóm đặc trưng",
 
 
 
@@ -773,7 +773,7 @@ const TEMPLATES: Record<ReportType, TemplateContent> = {
 
 
 
-      title: "IV. Kết Quả Kiểm Thử Mô Hình Trên Các Mẫu Biến Thể Tinh Vi",
+      title: "IV. Kết quả kiểm thử trên các mẫu thử nghiệm điển hình",
 
 
 
@@ -817,7 +817,7 @@ const TEMPLATES: Record<ReportType, TemplateContent> = {
 
 
 
-      title: "V. Nhận Xét & Định Hướng Nâng Cấp Mô Hình AI",
+      title: "V. Đánh giá kỹ thuật & định hướng tối ưu mô hình",
 
 
 
@@ -4029,7 +4029,7 @@ export default function ExportPage() {
 
 
 
-                <div className="flex justify-between items-end border-b-2 border-slate-900 pb-3 mb-4 relative z-10">
+                <div className="flex justify-between items-end border-b-2 border-slate-900 pb-3 mb-4 relative z-10 gap-4">
 
 
 
@@ -4217,23 +4217,11 @@ export default function ExportPage() {
 
 
 
-                  <div className="text-right">
-
-
-
+                  <div className="text-right shrink-0">
                     <div
-
-
-
                       contentEditable={isEditable}
-
-
-
                       suppressContentEditableWarning
-
-
-
-                      className={`text-sm font-black text-slate-900 tracking-wide uppercase ${editableClass}`}
+                      className={`text-sm font-bold text-slate-900 tracking-normal uppercase whitespace-nowrap ${editableClass}`}
 
 
 
@@ -4249,7 +4237,7 @@ export default function ExportPage() {
 
 
 
-                    <div className="text-xs text-slate-600 font-mono font-bold mt-1">
+                    <div className="text-xs text-slate-600 font-mono font-bold mt-1 whitespace-nowrap">
 
 
 
@@ -4301,7 +4289,7 @@ export default function ExportPage() {
 
 
 
-                      className={`text-xs text-slate-500 font-mono mt-0.5 ${editableClass}`}
+                      className={`text-xs text-slate-500 font-mono mt-0.5 whitespace-nowrap ${editableClass}`}
 
 
 
@@ -4349,7 +4337,7 @@ export default function ExportPage() {
 
 
 
-                    className={`text-xl sm:text-2xl font-black text-slate-900 mb-2 leading-snug tracking-normal ${editableClass}`}
+                    className={`text-xl sm:text-2xl font-bold text-slate-900 mb-2 leading-snug ${editableClass}`}
 
 
 
@@ -4365,7 +4353,7 @@ export default function ExportPage() {
 
 
 
-                  <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-white border border-slate-300 rounded-full text-xs font-bold text-slate-800 shadow-2xs">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-200 rounded-full text-xs font-normal text-slate-700">
 
 
 
@@ -4425,7 +4413,7 @@ export default function ExportPage() {
 
 
 
-                    <div className="text-xs font-black text-slate-900 uppercase tracking-wider mb-2 border-b border-slate-300 pb-1 flex items-center justify-between">
+                    <div className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 border-b border-slate-300 pb-1 flex items-center justify-between">
 
 
 
@@ -4449,7 +4437,7 @@ export default function ExportPage() {
 
 
 
-                        I. Đánh Giá Tổng Quan (Executive Summary)
+                        I. Đánh giá tổng quan
 
 
 
@@ -4541,7 +4529,7 @@ export default function ExportPage() {
 
 
 
-                    <div className="text-xs font-black text-slate-900 uppercase tracking-wider mb-2.5 border-b border-slate-300 pb-1 flex items-center justify-between">
+                    <div className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2.5 border-b border-slate-300 pb-1 flex items-center justify-between">
 
 
 
@@ -4565,7 +4553,7 @@ export default function ExportPage() {
 
 
 
-                        II. Chỉ Số Hoạt Động Trọng Yếu (Key Defense Metrics)
+                        II. Các chỉ số hoạt động trọng yếu
 
 
 
@@ -4573,7 +4561,7 @@ export default function ExportPage() {
 
 
 
-                      <span className="text-xs text-slate-400 italic print:hidden">Bấm vào ô để sửa số</span>
+                      
 
 
 
@@ -4605,7 +4593,7 @@ export default function ExportPage() {
 
 
 
-                            className={`text-xs font-bold text-slate-600 uppercase tracking-wider mb-0.5 ${editableClass}`}
+                            className={`text-xs font-medium text-slate-600 mb-0.5 ${editableClass}`}
 
 
 
@@ -4633,7 +4621,7 @@ export default function ExportPage() {
 
 
 
-                            className={`text-xl font-black text-slate-900 ${editableClass}`}
+                            className={`text-xl font-bold text-slate-800 ${editableClass}`}
 
 
 
@@ -4725,7 +4713,7 @@ export default function ExportPage() {
 
 
 
-                      className={`text-xs font-black text-slate-900 uppercase tracking-wider mb-2 border-b border-slate-300 pb-1 ${editableClass}`}
+                      className={`text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 border-b border-slate-300 pb-1 ${editableClass}`}
 
 
 
@@ -4877,7 +4865,7 @@ export default function ExportPage() {
 
 
 
-                      className={`text-xs font-black text-slate-900 uppercase tracking-wider mb-2 border-b border-slate-300 pb-1 ${editableClass}`}
+                      className={`text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 border-b border-slate-300 pb-1 ${editableClass}`}
 
 
 
@@ -5163,7 +5151,7 @@ export default function ExportPage() {
 
 
 
-                      className={`text-xs font-black text-slate-900 uppercase tracking-wider mb-2 border-b border-slate-300 pb-1 flex items-center justify-between ${editableClass}`}
+                      className={`text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 border-b border-slate-300 pb-1 flex items-center justify-between ${editableClass}`}
 
 
 
@@ -5175,11 +5163,7 @@ export default function ExportPage() {
 
 
 
-                      <span className="text-[10px] font-bold text-sky-600 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full uppercase tracking-normal">
-
-                        Gemini 1.5 Pro XAI
-
-                      </span>
+                      
 
 
 
@@ -5199,7 +5183,7 @@ export default function ExportPage() {
 
 
 
-                      className={`bg-slate-50/70 border-l-4 border-l-sky-500 border border-slate-300 p-3.5 rounded-r-xl text-xs text-slate-800 leading-relaxed shadow-2xs ${editableClass}`}
+                      className={`bg-slate-50 border border-slate-200 p-3.5 rounded-lg text-xs text-slate-700 leading-relaxed ${editableClass}`}
 
 
 
