@@ -38,18 +38,36 @@ const IGNORED_HOSTS = [
 
 // Danh bạ xác thực tức thì tại trình duyệt (<1ms - Hoạt động cả khi mạng yếu / rớt mạng)
 const CLIENT_SAFE_DOMAINS = [
-  "google.com", "google.com.vn", "vnexpress.net", "youtube.com", "facebook.com",
-  "github.com", "microsoft.com", "zalo.me", "tuoitre.vn", "thanhnien.vn",
-  "dantri.com.vn", "baomoi.com", "wikipedia.org", "claude.ai", "openai.com",
-  "chatgpt.com", "vietcombank.com.vn", "mbbank.com.vn", "techcombank.com.vn",
-  "bidv.com.vn", "acb.com.vn", "shopee.vn", "lazada.vn", "tiki.vn",
-  "dichvucong.gov.vn", "chinhphu.vn", "vneid.gov.vn", "vercel.com", "vercel.app",
-  "github.dev", "supabase.co", "cloudflare.com", "render.com", "huggingface.co"
+  // Tuyển dụng & Việc làm
+  "topcv.vn", "vietnamworks.com", "itviec.com", "careerviet.vn", "careerbuilder.vn",
+  "jobsgo.vn", "vieclam24h.vn", "timviec365.vn", "linkedin.com",
+
+  // Báo chí & Tin tức
+  "vnexpress.net", "tuoitre.vn", "thanhnien.vn", "dantri.com.vn", "baomoi.com",
+  "vietnamnet.vn", "znews.vn", "zingnews.vn", "vtv.vn", "vov.vn", "genk.vn", "tinhte.vn",
+
+  // Thương mại điện tử & Chuỗi bán lẻ
+  "shopee.vn", "shopee.com", "lazada.vn", "tiki.vn", "sendo.vn",
+  "thegioididong.com", "dienmayxanh.com", "fptshop.com.vn", "cellphones.com.vn", "hoanghamobile.com",
+
+  // Ngân hàng & Fintech
+  "vietcombank.com.vn", "mbbank.com.vn", "techcombank.com.vn", "bidv.com.vn",
+  "acb.com.vn", "vpbank.com.vn", "tpbank.com.vn", "tpb.vn", "agribank.com.vn",
+  "momo.vn", "vnpay.vn", "zalopay.vn",
+
+  // Cơ quan Nhà nước
+  "dichvucong.gov.vn", "chinhphu.vn", "vneid.gov.vn", "baohiemxahoi.gov.vn", "thuvienphapluat.vn",
+
+  // Nền tảng Quốc tế & Công nghệ
+  "google.com", "google.com.vn", "youtube.com", "facebook.com", "github.com",
+  "microsoft.com", "zalo.me", "wikipedia.org", "claude.ai", "openai.com", "chatgpt.com",
+  "gemini.google.com", "vercel.com", "vercel.app", "github.dev", "supabase.co",
+  "cloudflare.com", "render.com", "huggingface.co", "canva.com", "figma.com"
 ];
 
 const TARGET_BRANDS = [
   "mbbank", "vietcombank", "techcombank", "bidv", "acb", "vpbank", "tpbank",
-  "agribank", "shopee", "facebook", "vneid", "vnpay", "momo", "apple", "google"
+  "agribank", "shopee", "facebook", "vneid", "vnpay", "momo", "apple", "google", "topcv"
 ];
 
 const SENSITIVE_TRIGGERS = [
@@ -65,18 +83,22 @@ function clientFastInspect(targetUrl) {
     const cleanHost = host.replace("www.", "");
     const fullUrl = targetUrl.toLowerCase();
 
-    // 1. Kiểm tra mạng nội bộ & Whitelist tức thì
+    // 1. Kiểm tra mạng nội bộ, Cơ quan Nhà nước / Giáo dục (.gov.vn, .edu.vn) & Whitelist tức thì
+    const isGovOrEdu = cleanHost.endsWith(".gov.vn") || cleanHost === "gov.vn" ||
+                       cleanHost.endsWith(".edu.vn") || cleanHost === "edu.vn" ||
+                       cleanHost.endsWith(".chinhphu.vn") || cleanHost === "chinhphu.vn";
     if (
       host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host === "::1" ||
       host.startsWith("192.168.") || host.startsWith("10.") ||
+      isGovOrEdu ||
       CLIENT_SAFE_DOMAINS.some(d => cleanHost === d || cleanHost.endsWith("." + d))
     ) {
       return {
         is_phishing: false,
         trust_score: 99.0,
         action: "allow",
-        label: "An toàn (Xác thực tức thì)",
-        note: "Tên miền uy tín đạt chuẩn an toàn cao."
+        label: isGovOrEdu ? "An toàn (Cơ quan Nhà nước / Giáo dục)" : "An toàn (Xác thực tức thì)",
+        note: isGovOrEdu ? "Tên miền cơ quan nhà nước / giáo dục được bảo chứng." : "Tên miền uy tín đạt chuẩn an toàn cao."
       };
     }
 

@@ -111,55 +111,126 @@ DEFAULT_SETTINGS = {
     "enableDomScan": True,
     "inferenceCache": True,
 
-    # 3. Whitelist & Blacklist
+    # 3. Whitelist & Blacklist (Danh bạ số tín nhiệm Quốc gia & Quốc tế)
     "whitelist": [
-        "vietcombank.com.vn",
-        "dichvucong.gov.vn",
-        "docs.google.com",
-        "mbbank.com.vn",
+        # Tuyển dụng & Việc làm uy tín hàng đầu
+        "topcv.vn",
+        "vietnamworks.com",
+        "itviec.com",
+        "careerviet.vn",
+        "careerbuilder.vn",
+        "jobsgo.vn",
+        "vieclam24h.vn",
+        "timviec365.vn",
+        "glints.com",
+        "linkedin.com",
+
+        # Thương mại điện tử & Chuỗi bán lẻ
         "shopee.vn",
-        "google.com",
-        "google.com.vn",
-        "gmail.com",
-        "facebook.com",
-        "messenger.com",
-        "youtube.com",
-        "github.com",
+        "shopee.com",
+        "lazada.vn",
+        "tiki.vn",
+        "sendo.vn",
+        "thegioididong.com",
+        "dienmayxanh.com",
+        "fptshop.com.vn",
+        "cellphones.com.vn",
+        "hoanghamobile.com",
+        "bachhoaxanh.com",
+        "nguyenkim.com",
+        "hasaki.vn",
+
+        # Ngân hàng & Fintech chính thống
+        "vietcombank.com.vn",
+        "mbbank.com.vn",
+        "techcombank.com.vn",
+        "techcombank.com",
+        "bidv.com.vn",
+        "acb.com.vn",
+        "vpbank.com.vn",
+        "tpbank.com.vn",
+        "tpb.vn",
+        "agribank.com.vn",
+        "hdbank.com.vn",
+        "sacombank.com.vn",
+        "vib.com.vn",
+        "ocb.com.vn",
+        "shb.com.vn",
+        "momo.vn",
+        "vnpay.vn",
+        "zalopay.vn",
+
+        # Cơ quan Nhà nước, Pháp luật & Giáo dục
         "chinhphu.vn",
-        "msn.com",
-        "ntp.msn.com",
-        "bing.com",
-        "microsoft.com",
-        "live.com",
-        "office.com",
-        "zalo.me",
+        "dichvucong.gov.vn",
+        "vneid.gov.vn",
+        "baohiemxahoi.gov.vn",
+        "thuvienphapluat.vn",
+        "gdt.gov.vn",
+        "moit.gov.vn",
+        "mic.gov.vn",
+        "bocongan.gov.vn",
+
+        # Báo chí & Cổng thông tin chính thống
         "vnexpress.net",
         "tuoitre.vn",
         "thanhnien.vn",
         "dantri.com.vn",
+        "vietnamnet.vn",
         "baomoi.com",
-        "wikipedia.org",
+        "znews.vn",
+        "zingnews.vn",
+        "vtv.vn",
+        "vov.vn",
+        "laodong.vn",
+        "tienphong.vn",
+        "genk.vn",
+        "tinhte.vn",
+        "kenh14.vn",
+        "soha.vn",
+        "cafef.vn",
+        "cafebiz.vn",
+
+        # Nền tảng Công nghệ & Mạng xã hội toàn cầu
+        "google.com",
+        "google.com.vn",
+        "gmail.com",
+        "docs.google.com",
+        "drive.google.com",
+        "facebook.com",
+        "fb.com",
+        "messenger.com",
+        "youtube.com",
+        "zalo.me",
+        "chat.zalo.me",
         "tiktok.com",
         "instagram.com",
-        "lazada.vn",
-        "tiki.vn",
-        "techcombank.com.vn",
-        "bidv.com.vn",
-        "acb.com.vn",
-        "vpbank.com.vn",
-        "tpb.vn",
-        "agribank.com.vn",
-        "momo.vn",
-        "vnpay.vn",
+        "telegram.org",
+        "t.me",
+        "microsoft.com",
+        "live.com",
+        "office.com",
+        "bing.com",
+        "msn.com",
+        "ntp.msn.com",
+        "apple.com",
+        "icloud.com",
+        "github.com",
+        "github.dev",
+        "gitlab.com",
         "canva.com",
+        "figma.com",
+        "notion.so",
+        "wikipedia.org",
         "openai.com",
         "chatgpt.com",
         "claude.ai",
+        "anthropic.com",
+        "gemini.google.com",
         "render.com",
         "huggingface.co",
         "vercel.com",
         "vercel.app",
-        "github.dev",
         "supabase.co",
         "cloudflare.com"
     ],
@@ -185,7 +256,11 @@ def load_settings() -> Dict[str, Any]:
         try:
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                return {**DEFAULT_SETTINGS, **data}
+                merged = {**DEFAULT_SETTINGS, **data}
+                # Tự động hợp nhất danh sách whitelist mặc định và whitelist tùy chỉnh của người dùng
+                user_wl = data.get("whitelist", [])
+                merged["whitelist"] = list(dict.fromkeys(DEFAULT_SETTINGS["whitelist"] + user_wl))
+                return merged
         except Exception as e:
             print(f"Error reading settings.json: {e}")
     return DEFAULT_SETTINGS.copy()
@@ -249,7 +324,8 @@ PROTECTED_BRANDS = {
     "lazada": ["lazada.vn"],
     "vneid": ["vneid.gov.vn", "dichvucong.gov.vn"],
     "dichvucong": ["dichvucong.gov.vn", "chinhphu.vn"],
-    "evn": ["evn.com.vn"]
+    "evn": ["evn.com.vn"],
+    "topcv": ["topcv.vn"]
 }
 
 def analyze_domain_spoofing(domain: str, raw_url: str):
@@ -357,10 +433,12 @@ def extract_features(url_str):
     if ':' in domain:
         domain = domain.split(':')[0]
 
-    # Chuẩn hóa bỏ tiền tố giao thức (http://, https://) trước khi tách đặc trưng học máy
-    # nhằm loại bỏ độ lệch thu thập HTTPS giữa tập sạch Kaggle và tập lừa đảo PhishTank.
-    # Giao thức scheme vẫn được giữ riêng cho Luật bảo mật 3 (kiểm tra SSL/TLS).
-    norm_url = re.sub(r'^https?://', '', url, flags=re.IGNORECASE)
+    # Chuẩn hóa URI theo chuẩn RFC 3986: Khi URL không có path, path mặc định luôn là '/' (Root)
+    # Khắc phục triệt để độ lệch dữ liệu huấn luyện (trong 580k mẫu, URL an toàn luôn có ít nhất 1 dấu slash).
+    path = parsed.path if parsed.path else '/'
+    norm_url = domain + path
+    if parsed.query:
+        norm_url += '?' + parsed.query
 
     length_url = len(norm_url)
     length_domain = len(domain)
@@ -549,13 +627,20 @@ async def predict_url(data: URLRequest, db: Session = Depends(get_db)):
             print("Error logging cached scan to DB:", e)
         return cached_result
 
-    # 1. Whitelist Check (User Whitelist)
+    # 1. Whitelist Check (User Whitelist) & Government / Education Verification
+    is_gov_or_edu = (
+        domain_clean.endswith(".gov.vn") or domain_clean == "gov.vn" or
+        domain_clean.endswith(".edu.vn") or domain_clean == "edu.vn" or
+        domain_clean.endswith(".chinhphu.vn") or domain_clean == "chinhphu.vn" or
+        domain_clean.endswith(".gov") or domain_clean.endswith(".edu")
+    )
     active_whitelist = [w.lower().replace('www.', '').strip() for w in current_settings.get("whitelist", [])]
-    is_safe_whitelist = False
-    for safe_domain in active_whitelist:
-        if safe_domain and (domain_clean == safe_domain or domain_clean.endswith('.' + safe_domain)):
-            is_safe_whitelist = True
-            break
+    is_safe_whitelist = is_gov_or_edu
+    if not is_safe_whitelist:
+        for safe_domain in active_whitelist:
+            if safe_domain and (domain_clean == safe_domain or domain_clean.endswith('.' + safe_domain)):
+                is_safe_whitelist = True
+                break
 
     # 2. Blacklist Check (User Blacklist)
     active_blacklist = [b.lower().replace('www.', '').strip() for b in current_settings.get("blacklist", [])]
@@ -581,10 +666,10 @@ async def predict_url(data: URLRequest, db: Session = Depends(get_db)):
     elif is_safe_whitelist:
         is_phishing = False
         action = "allow"
-        label = "An toàn (Whitelist)"
+        label = "An toàn (Cơ quan Nhà nước / Giáo dục)" if is_gov_or_edu else "An toàn (Whitelist)"
         confidence = 99.9
         trust_score = 99.9
-        note = "[Whitelist] Tên miền tin cậy nằm trong danh bạ bảo mật hệ thống (Bỏ qua quét AI)."
+        note = "[Tín nhiệm Quốc gia] Tên miền thuộc hệ thống cơ quan nhà nước / giáo dục được xác thực pháp lý." if is_gov_or_edu else "[Whitelist] Tên miền tin cậy nằm trong danh bạ bảo mật hệ thống (Bỏ qua quét AI)."
         if current_settings.get("useGeminiXAI", True):
             gemini_explanation = f"Trang web {domain} là tên miền uy tín đã được xác thực an toàn trong Danh sách Tin cậy (Whitelist). Người dùng có thể an tâm truy cập."
     else:
@@ -660,12 +745,32 @@ async def predict_url(data: URLRequest, db: Session = Depends(get_db)):
                 # Chỉ cảnh báo khi tỷ lệ số trên 35% VÀ URL dài trên 25 ký tự (tránh chặn oan web1, 24h, vtv1, mp3...)
                 reasons.append(f"Tỷ lệ số cao bất thường ({round(val*100)}%)")
 
-        # 3-Tier Security Decision Architecture (Phân cấp quyết định 3 tầng an ninh):
+        # Phân tích rủi ro bối cảnh đa tầng (Context-Aware Threat Evaluation)
+        has_sens_word = any(w in norm_url.lower() for w in SUSPICIOUS_WORDS)
+        has_raw_ip = features[8] == 1
+        is_http_insecure = (scheme != "https")
+        has_deep_subdomains = features[9] >= 2
+        matched_tld = next((tld for tld in RISKY_TLDS if domain_clean.endswith(tld)), None)
+
+        # 3-Tier Security Decision Architecture (Phân cấp quyết định 3 tầng an ninh linh hoạt):
         # Tầng 1: Vùng Đỏ (Phishing - Chặn cứng):
         # - Bắt quả tang giả mạo thương hiệu (IDN Homograph/Font chữ nhái/Leetspeak/Combo lừa đảo)
-        # - Hoặc mô hình AI kết luận lừa đảo với độ tin cậy cao (p_phish >= 0.65)
-        # - Hoặc điểm an toàn rớt sâu dưới 45.0
-        is_red_threat = is_critical_spoof or (trust_score < 45.0) or (p_phish >= 0.65)
+        # - Hoặc TLD rủi ro cao kết hợp từ khóa nhạy cảm / không an toàn
+        # - Hoặc Dùng địa chỉ IP thay vì tên miền kết hợp đường dẫn nhạy cảm hoặc không bảo mật
+        # - Hoặc AI kết luận lừa đảo rất cao (p_phish >= 0.78) VÀ có ít nhất một yếu tố rủi ro thực tế
+        # - Hoặc điểm an toàn rớt sâu dưới 30.0 VÀ có yếu tố rủi ro thực tế
+        is_red_threat = (
+            is_critical_spoof
+            or (matched_tld and has_sens_word)
+            or (has_raw_ip and (has_sens_word or is_http_insecure))
+            or (p_phish >= 0.78 and (has_sens_word or is_http_insecure or has_deep_subdomains or matched_tld))
+            or (trust_score < 30.0 and (has_sens_word or is_http_insecure or matched_tld))
+        )
+
+        # Contextual Safeguard: Đối với website dùng HTTPS chuẩn, không nhái thương hiệu, không TLD rủi ro
+        # và không có từ khóa đánh cắp tài khoản -> tuyệt đối không chặn oan đại trà
+        if not is_red_threat and not matched_tld and not has_sens_word and scheme == "https":
+            trust_score = max(trust_score, 75.0)
 
         if is_red_threat:
             is_phishing = True
