@@ -40,18 +40,22 @@ models.Base.metadata.create_all(bind=engine)
 
 def auto_migrate_db():
     try:
-        import sqlalchemy
-        with engine.connect() as conn:
-            res = conn.execute(sqlalchemy.text("PRAGMA table_info(feedback_reports)"))
-            cols = [r[1] for r in res.fetchall()]
-            if cols:
-                if "admin_reply" not in cols:
-                    conn.execute(sqlalchemy.text("ALTER TABLE feedback_reports ADD COLUMN admin_reply TEXT"))
-                if "user_viewed" not in cols:
-                    conn.execute(sqlalchemy.text("ALTER TABLE feedback_reports ADD COLUMN user_viewed BOOLEAN DEFAULT 0"))
-                conn.commit()
+        from sqlalchemy import text
+        is_pg = (engine.dialect.name == "postgresql")
+        migrations = [
+            ("feedback_reports", "admin_reply", "TEXT" if not is_pg else "VARCHAR(1000)"),
+            ("feedback_reports", "user_viewed", "BOOLEAN DEFAULT FALSE" if is_pg else "BOOLEAN DEFAULT 0"),
+            ("feedback_reports", "pushed_to_retrain", "BOOLEAN DEFAULT FALSE" if is_pg else "BOOLEAN DEFAULT 0"),
+            ("scan_records", "note", "TEXT" if not is_pg else "VARCHAR(500)")
+        ]
+        for table, col, col_def in migrations:
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}"))
+            except Exception:
+                pass
     except Exception as e:
-        pass
+        print(f"[Auto-migrate Warning]: {e}")
 
 auto_migrate_db()
 
