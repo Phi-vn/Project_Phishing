@@ -7,6 +7,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 export default function OverviewPage() {
   const [scannedCount, setScannedCount] = useState(0);
   const [blockedCount, setBlockedCount] = useState(0);
+  const [pendingFeedbackCount, setPendingFeedbackCount] = useState(0);
   const [trendData, setTrendData] = useState<any[]>([]);
   const [timeRange, setTimeRange] = useState('7 ngày gần nhất');
   const [tableFilter, setTableFilter] = useState<'all' | 'blocked' | 'warning' | 'safe'>('all');
@@ -76,10 +77,30 @@ export default function OverviewPage() {
   const fetchStats = async () => {
     setIsRefreshing(true);
     try {
-      const res = await fetch('http://localhost:8000/stats');
-      const data = await res.json();
-      setScannedCount(data.total_scans || 0);
-      setBlockedCount(data.total_threats || 0);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      let res = await fetch(`${apiUrl}/stats`).catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch("https://phisharmor-ai-backend.onrender.com/stats").catch(() => null);
+      }
+      if (res && res.ok) {
+        const data = await res.json();
+        setScannedCount(data.total_scans || 0);
+        setBlockedCount(data.total_threats || 0);
+      }
+
+      // Fetch pending feedbacks
+      let fbRes = await fetch(`${apiUrl}/api/feedback`).catch(() => null);
+      if (!fbRes || !fbRes.ok) {
+        fbRes = await fetch("https://phisharmor-ai-backend.onrender.com/api/feedback").catch(() => null);
+      }
+      if (fbRes && fbRes.ok) {
+        const fbData = await fbRes.json();
+        if (Array.isArray(fbData)) {
+          const pending = fbData.filter((i: any) => i.status === "pending" || !i.status);
+          setPendingFeedbackCount(pending.length);
+        }
+      }
+
       await Promise.all([fetchTrend(timeRange), fetchLiveThreats()]);
     } catch (error) {
       console.error("Failed to fetch stats:", error);
@@ -379,6 +400,32 @@ export default function OverviewPage() {
               </Link>
             </div>
           </div>
+
+          {/* Notification Banner for Pending Feedbacks */}
+          {pendingFeedbackCount > 0 && (
+            <div className="p-4 bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-transparent border-l-4 border-rose-500 rounded-xl flex items-center justify-between gap-4 shadow-sm bg-white dark:bg-[#111827]">
+              <div className="flex items-center gap-3">
+                <span className="w-10 h-10 rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-xl animate-bounce">
+                  🔔
+                </span>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    Có <span className="px-2 py-0.5 bg-rose-600 text-white rounded-md text-xs font-black animate-pulse">{pendingFeedbackCount}</span> ý kiến phản hồi mới từ người dùng!
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Người dùng gửi đánh giá, báo cáo chặn nhầm hoặc link lừa đảo cần Quản trị viên duyệt và nạp Whitelist.
+                  </p>
+                </div>
+              </div>
+              <Link 
+                href="/feedback" 
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all whitespace-nowrap flex items-center gap-1.5"
+              >
+                <span>Vào Duyệt Ngay</span>
+                <span>→</span>
+              </Link>
+            </div>
+          )}
 
           {/* 4 Top KPI Cards (Interactive Filters) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

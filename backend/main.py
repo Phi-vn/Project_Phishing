@@ -1853,13 +1853,46 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
 
     if pending_count > 0:
         notif_badge_html = f"""<span id="admin-pending-pill" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;padding:7px 14px;border-radius:10px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px">
-          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 6px #ef4444"></span>
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 6px #ef4444;animation:pulse 1.5s infinite"></span>
           🔔 <span id="pending-count-num" style="background:#ef4444;color:#fff;padding:2px 7px;border-radius:999px;font-size:11.5px">{pending_count}</span> ý kiến mới chờ duyệt
         </span>"""
+        card_box_style = "border: 2px solid #ef4444; background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%); box-shadow: 0 4px 12px rgba(239,68,68,0.12);"
+        card_title_color = "#b91c1c"
+        card_dot_color = "#ef4444"
+        card_val_color = "#dc2626"
+        card_unit_text = "thông báo mới"
+        card_unit_color = "#b91c1c"
+        card_sub_text = "🚨 Cần Admin phê duyệt & nạp Whitelist"
+        card_sub_color = "#dc2626"
     else:
         notif_badge_html = """<span id="admin-pending-pill" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;padding:7px 14px;border-radius:10px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px">
           ✓ Đã xử lý tất cả phản hồi (0 chờ duyệt)
         </span>"""
+        card_box_style = "border: 2px solid #10b981; background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%); box-shadow: 0 4px 12px rgba(16,185,129,0.12);"
+        card_title_color = "#047857"
+        card_dot_color = "#10b981"
+        card_val_color = "#059669"
+        card_unit_text = "đã duyệt xong"
+        card_unit_color = "#047857"
+        card_sub_text = "✓ Đã hoàn tất 100% tất cả ý kiến"
+        card_sub_color = "#059669"
+
+    card_pending_box_html = f"""<div class="stat" id="stat-pending-box" style="{card_box_style}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div class="stat-label" id="card-pending-title" style="color:{card_title_color};font-weight:700;display:flex;align-items:center;gap:6px">
+          <span id="card-pending-dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:{card_dot_color};box-shadow:0 0 8px {card_dot_color};animation:pulse 1.5s infinite"></span>
+          Ý Kiến Chờ Duyệt (Thông báo)
+        </div>
+        <span style="font-size:18px">🔔</span>
+      </div>
+      <div class="stat-val" id="card-pending-val" style="color:{card_val_color};display:flex;align-items:baseline;gap:8px">
+        <span id="card-pending-num">{pending_count}</span>
+        <span id="card-pending-unit" style="font-size:14px;font-weight:700;color:{card_unit_color}">{card_unit_text}</span>
+      </div>
+      <div id="card-pending-sub" style="font-size:11.5px;color:{card_sub_color};margin-top:6px;font-weight:600">
+        {card_sub_text}
+      </div>
+    </div>"""
 
     fb_rows = []
     for idx, fb in enumerate(feedbacks, 1):
@@ -1993,10 +2026,15 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
   .btn{{display:inline-block;padding:9px 15px;border-radius:10px;text-decoration:none;font-size:13px;font-weight:700}}
   .btn-primary{{background:#2563eb;color:#fff}}
   .btn-green{{background:#059669;color:#fff}}
-  .stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:22px}}
-  .stat{{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px}}
+  .btn-amber{{background:#f59e0b;color:#fff;border:none;cursor:pointer}}
+  .stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:22px}}
+  .stat{{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;transition:all .3s}}
   .stat-label{{font-size:12px;color:#64748b;font-weight:600;text-transform:uppercase}}
   .stat-val{{font-size:28px;font-weight:800;margin-top:6px}}
+  @keyframes pulse {{
+    0%, 100% {{ opacity: 1; transform: scale(1); }}
+    50% {{ opacity: 0.35; transform: scale(0.85); }}
+  }}
   .card{{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;margin-bottom:20px;overflow-x:auto}}
   .card h2{{font-size:16px;margin:0 0 14px}}
   table{{width:100%;border-collapse:collapse;font-size:13px}}
@@ -2015,11 +2053,13 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
       <h1>🛡️ PhishArmor AI — Cổng Theo Dõi Dùng Thử (24/7)</h1>
       <div class="actions">
         {notif_badge_html}
+        <button class="btn btn-amber" onclick="batchApproveAll()">⚡ Duyệt nhanh tất cả ({pending_count})</button>
         <a class="btn btn-primary" href="/admin?key={safe_key}">🔄 Làm mới</a>
         <a class="btn btn-green" href="/admin/export-csv?key={safe_key}">📥 Tải Excel (.CSV)</a>
       </div>
     </div>
     <div class="stats">
+      {card_pending_box_html}
       <div class="stat"><div class="stat-label">Khảo sát & Đánh giá người dùng</div><div class="stat-val" style="color:#059669">{len(feedbacks)} <span style="font-size:16px;font-weight:700;color:#d97706">({avg_rating_str} ⭐)</span></div></div>
       <div class="stat"><div class="stat-label">Tổng lượt quét URL</div><div class="stat-val" style="color:#2563eb">{total_scans}</div></div>
       <div class="stat"><div class="stat-label">Trang lừa đảo đã chặn</div><div class="stat-val" style="color:#e11d48">{phishing_scans}</div></div>
@@ -2076,19 +2116,47 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
         if (cell) {{
           cell.innerHTML = '<span class="badge" style="color:#059669;background:#ecfdf5;font-weight:700">✓ Đã duyệt xong</span><div style="font-size:10px;color:#059669;margin-top:3px;font-weight:600">🔔 Đã báo tiện ích</div>';
         }}
+        // Giảm dần số thông báo hiển thị ở cả thanh tiêu đề và khung thống kê
         const numEl = document.getElementById('pending-count-num');
-        if (numEl) {{
-          let val = parseInt(numEl.innerText) || 1;
-          val = Math.max(0, val - 1);
-          numEl.innerText = val;
-          if (val === 0) {{
-            const pill = document.getElementById('admin-pending-pill');
-            if (pill) {{
-              pill.style.background = '#ecfdf5';
-              pill.style.color = '#047857';
-              pill.style.border = '1px solid #a7f3d0';
-              pill.innerHTML = '✓ Đã xử lý tất cả phản hồi (0 chờ duyệt)';
-            }}
+        const cardNumEl = document.getElementById('card-pending-num');
+        const cardUnitEl = document.getElementById('card-pending-unit');
+        const cardSubEl = document.getElementById('card-pending-sub');
+        const cardBox = document.getElementById('stat-pending-box');
+        const cardTitle = document.getElementById('card-pending-title');
+        const cardDot = document.getElementById('card-pending-dot');
+
+        let currentVal = parseInt(cardNumEl ? cardNumEl.innerText : (numEl ? numEl.innerText : '1')) || 1;
+        let nextVal = Math.max(0, currentVal - 1);
+
+        if (numEl) numEl.innerText = nextVal;
+        if (cardNumEl) cardNumEl.innerText = nextVal;
+
+        if (nextVal === 0) {{
+          const pill = document.getElementById('admin-pending-pill');
+          if (pill) {{
+            pill.style.background = '#ecfdf5';
+            pill.style.color = '#047857';
+            pill.style.border = '1px solid #a7f3d0';
+            pill.innerHTML = '✓ Đã xử lý tất cả phản hồi (0 chờ duyệt)';
+          }}
+          if (cardBox) {{
+            cardBox.style.borderColor = '#10b981';
+            cardBox.style.background = 'linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)';
+            cardBox.style.boxShadow = '0 4px 12px rgba(16,185,129,0.12)';
+          }}
+          if (cardTitle) cardTitle.style.color = '#047857';
+          if (cardDot) {{
+            cardDot.style.background = '#10b981';
+            cardDot.style.boxShadow = '0 0 8px #10b981';
+          }}
+          if (cardNumEl && cardNumEl.parentElement) cardNumEl.parentElement.style.color = '#059669';
+          if (cardUnitEl) {{
+            cardUnitEl.innerText = 'đã duyệt xong';
+            cardUnitEl.style.color = '#047857';
+          }}
+          if (cardSubEl) {{
+            cardSubEl.innerText = '✓ Đã hoàn tất 100% tất cả ý kiến';
+            cardSubEl.style.color = '#059669';
           }}
         }}
       }} else {{
@@ -2098,6 +2166,20 @@ def admin_feedback_portal(key: Optional[str] = Query(default=None), db: Session 
     }} catch (e) {{
       alert('Lỗi kết nối: ' + e);
       if (btn) {{ btn.disabled = false; btn.innerText = '✅ Duyệt an toàn'; }}
+    }}
+  }}
+
+  async function batchApproveAll() {{
+    if (!confirm('Bạn có chắc muốn tự động phê duyệt an toàn toàn bộ các ý kiến đang chờ?')) return;
+    try {{
+      const res = await fetch('/api/feedback/batch-approve', {{ method: 'POST' }});
+      if (res.ok) {{
+        window.location.reload();
+      }} else {{
+        alert('Lỗi phê duyệt hàng loạt: HTTP ' + res.status);
+      }}
+    }} catch(e) {{
+      alert('Lỗi kết nối: ' + e);
     }}
   }}
   </script>

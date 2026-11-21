@@ -180,8 +180,12 @@ export default function FeedbackPage() {
 
   const fetchReports = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/feedback");
-      if (res.ok) {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      let res = await fetch(`${apiUrl}/api/feedback`).catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch("https://phisharmor-ai-backend.onrender.com/api/feedback").catch(() => null);
+      }
+      if (res && res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           setReports(data.map((item: any) => ({
@@ -244,12 +248,20 @@ export default function FeedbackPage() {
       return;
     }
     try {
-      const res = await fetch(`http://localhost:8000/api/feedback/${id}/action`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      let res = await fetch(`${apiUrl}/api/feedback/${id}/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action })
-      });
-      if (res.ok) {
+      }).catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch(`https://phisharmor-ai-backend.onrender.com/api/feedback/${id}/action`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action })
+        }).catch(() => null);
+      }
+      if (res && res.ok) {
         setReports(prev => prev.map(r => r.id === id ? { ...r, status: action, pushedToRetrain: false } : r));
       } else {
         setReports(reports.map(r => r.id === id ? { ...r, status: action, pushedToRetrain: false } : r));
@@ -276,8 +288,12 @@ export default function FeedbackPage() {
       return;
     }
     try {
-      const res = await fetch("http://localhost:8000/api/feedback/batch-approve", { method: "POST" });
-      if (res.ok) {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      let res = await fetch(`${apiUrl}/api/feedback/batch-approve`, { method: "POST" }).catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch("https://phisharmor-ai-backend.onrender.com/api/feedback/batch-approve", { method: "POST" }).catch(() => null);
+      }
+      if (res && res.ok) {
         await fetchReports();
       } else {
         setReports(reports.map(r => {
@@ -313,8 +329,12 @@ export default function FeedbackPage() {
       return;
     }
     try {
-      const res = await fetch(`http://localhost:8000/api/feedback/${id}/retrain`, { method: "POST" });
-      if (res.ok) {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      let res = await fetch(`${apiUrl}/api/feedback/${id}/retrain`, { method: "POST" }).catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch(`https://phisharmor-ai-backend.onrender.com/api/feedback/${id}/retrain`, { method: "POST" }).catch(() => null);
+      }
+      if (res && res.ok) {
         setReports(prev => prev.map(r => r.id === id ? { ...r, pushedToRetrain: true } : r));
       } else {
         setReports(reports.map(r => r.id === id ? { ...r, pushedToRetrain: true } : r));

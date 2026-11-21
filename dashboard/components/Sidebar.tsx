@@ -7,6 +7,36 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [isDark, setIsDark] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ email: string; role: string } | null>(null);
+  const [pendingFeedbackCount, setPendingFeedbackCount] = useState<number>(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPendingCount = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+        let res = await fetch(`${apiUrl}/api/feedback`).catch(() => null);
+        if (!res || !res.ok) {
+          res = await fetch("https://phisharmor-ai-backend.onrender.com/api/feedback").catch(() => null);
+        }
+        if (res && res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && isMounted) {
+            const pending = data.filter((item: any) => item.status === "pending" || !item.status);
+            setPendingFeedbackCount(pending.length);
+          }
+        }
+      } catch (err) {
+        // silent
+      }
+    };
+
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -128,7 +158,19 @@ export default function Sidebar() {
             <li><Link href="/history" className={getClassName("/history")}><Icon path="/history" /> Lịch sử kiểm tra</Link></li>
             <li><Link href="/metrics" className={getClassName("/metrics")}><Icon path="/metrics" /> Kiến trúc & Đánh giá</Link></li>
             <li><Link href="/training" className={getClassName("/training")}><Icon path="/training" /> Huấn luyện mô hình</Link></li>
-            <li><Link href="/feedback" className={getClassName("/feedback")}><Icon path="/feedback" /> Duyệt phản hồi mẫu</Link></li>
+            <li>
+              <Link href="/feedback" className={`${getClassName("/feedback")} justify-between`}>
+                <span className="flex items-center gap-2.5">
+                  <Icon path="/feedback" /> 
+                  <span>Duyệt phản hồi mẫu</span>
+                </span>
+                {pendingFeedbackCount > 0 && (
+                  <span className="ml-auto px-2 py-0.5 text-[11px] font-bold text-white bg-rose-500 rounded-full animate-pulse shadow-sm shadow-rose-500/40">
+                    {pendingFeedbackCount}
+                  </span>
+                )}
+              </Link>
+            </li>
             <li><Link href="/settings" className={getClassName("/settings")}><Icon path="/settings" /> Cài đặt hệ thống</Link></li>
           </ul>
         </div>
