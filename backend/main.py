@@ -1184,6 +1184,7 @@ class CreateFeedbackRequest(BaseModel):
 
 class ActionFeedbackRequest(BaseModel):
     action: str
+    admin_reply: Optional[str] = None
 
 def seed_default_feedback_if_empty(db: Session):
     if os.getenv("PHISHARMOR_CLOUD_MODE", "0") == "1":
@@ -1312,7 +1313,11 @@ def get_feedback_list(db: Session = Depends(get_db)):
             "aiPrediction": r.ai_prediction,
             "confidenceScore": r.confidence_score,
             "shapReasons": shap,
-            "pushedToRetrain": bool(r.pushed_to_retrain)
+            "pushedToRetrain": bool(r.pushed_to_retrain),
+            "adminReply": r.admin_reply or "",
+            "admin_reply": r.admin_reply or "",
+            "userViewed": bool(r.user_viewed),
+            "user_viewed": bool(r.user_viewed)
         })
     return results
 
@@ -1377,11 +1382,33 @@ async def action_feedback(report_code: str, payload: ActionFeedbackRequest, db: 
         raise HTTPException(status_code=404, detail="Không tìm thấy báo cáo")
     
     report.status = payload.action
+    
+    # Lưu tin nhắn phản hồi từ Admin gửi cho User
+    if payload.admin_reply and payload.admin_reply.strip():
+        report.admin_reply = payload.admin_reply.strip()
+    elif not report.admin_reply:
+        if payload.action == "safe":
+            report.admin_reply = "Quản trị viên đã kiểm duyệt và xác nhận trang này An toàn. Đã đưa vào Danh bạ Whitelist."
+        else:
+            report.admin_reply = "Quản trị viên đã xác nhận đây là website Lừa đảo (Phishing). Vui lòng tuyệt đối không truy cập!"
+
+    # Đánh dấu user_viewed = False để tiện ích người dùng nhận thông báo MỚI (chưa đọc)
+    report.user_viewed = False
+
+    # Nếu duyệt An toàn cho báo cáo nhầm, tự động đưa tên miền vào Whitelist
+    if report.domain and payload.action == "safe":
+        c_dom = report.domain.replace("www.", "").lower()
+        active_wl = current_settings.get("whitelist", [])
+        if c_dom not in active_wl:
+            active_wl.append(c_dom)
+            current_settings["whitelist"] = active_wl
+            save_settings_to_file(current_settings)
+
     now_utc = datetime.datetime.utcnow()
     try:
         is_phish = (payload.action == "phishing")
         lbl = "Lừa đảo (Đã duyệt SOC)" if is_phish else "An toàn (Đã duyệt SOC)"
-        nt = f"[Duyệt Phản Hồi #{report.report_code}] Kết luận thẩm định: {lbl}. Đã cập nhật vào cơ sở dữ liệu giám sát."
+        nt = f"[Duyệt Phản Hồi #{report.report_code}] Kết luận thẩm định: {lbl}. Phản hồi Admin: {report.admin_reply}"
         scan_log = models.ScanRecord(
             url=report.url,
             domain=report.domain,
@@ -1397,8 +1424,13 @@ async def action_feedback(report_code: str, payload: ActionFeedbackRequest, db: 
 
     db.commit()
     await manager.broadcast("new_feedback")
+    await manager.broadcast("new_notification")
     await manager.broadcast("new_scan")
-    return {"status": "success", "message": f"Đã duyệt báo cáo {report_code} là {payload.action}!"}
+    return {
+        "status": "success",
+        "message": f"Đã duyệt báo cáo {report_code} là {payload.action} và gửi tin nhắn phản hồi đến người dùng!",
+        "admin_reply": report.admin_reply
+    }
 
 @app.post("/api/feedback/{report_code}/retrain")
 async def retrain_feedback(report_code: str, db: Session = Depends(get_db)):
@@ -1492,19 +1524,25 @@ def get_user_notifications(
     email: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    # Lấy các phản hồi đã được Admin xử lý (approved hoặc safe)
+    # Lấy tất cả các phản hồi đã được Admin xử lý hoặc có tin nhắn admin_reply
     query = db.query(models.FeedbackReport).filter(
-        models.FeedbackReport.status.in_(["approved", "safe", "resolved"])
+        (models.FeedbackReport.status.in_(["approved", "safe", "phishing", "resolved"])) |
+        (models.FeedbackReport.admin_reply != None)
     )
-    if isinstance(email, str) and email.strip() and email.strip().lower() not in ("anonymous@user.vn", "nguoidungthu", "ẩn danh"):
+    if isinstance(email, str) and email.strip() and email.strip().lower() not in ("anonymous@user.vn", "nguoidungthu", "ẩn danh", "user_report@phisharmor.vn", "user@phisharmor.vn"):
         query = query.filter(models.FeedbackReport.reporter_user == email.strip())
 
-    resolved_reports = query.order_by(models.FeedbackReport.id.desc()).limit(15).all()
+    resolved_reports = query.order_by(models.FeedbackReport.id.desc()).limit(20).all()
     unread_count = sum(1 for r in resolved_reports if not bool(getattr(r, "user_viewed", False)))
 
     notifs = []
     for r in resolved_reports:
         ts = (r.timestamp + datetime.timedelta(hours=7)).strftime("%d/%m %H:%M") if r.timestamp else ""
+        default_reply = (
+            "Quản trị viên đã kiểm tra và phê duyệt an toàn. Tên miền đã được cập nhật vào Danh bạ Whitelist."
+            if r.status in ("safe", "approved")
+            else "Quản trị viên xác nhận đây là website lừa đảo độc hại. Vui lòng tuyệt đối không truy cập."
+        )
         notifs.append({
             "report_code": r.report_code,
             "url": r.url,
@@ -1512,9 +1550,10 @@ def get_user_notifications(
             "status": r.status,
             "report_type": r.report_type,
             "user_comment": r.user_comment,
-            "admin_reply": getattr(r, "admin_reply", None) or "Quản trị viên đã kiểm tra và phê duyệt an toàn. Tên miền đã được cập nhật vào Danh bạ Whitelist.",
+            "admin_reply": getattr(r, "admin_reply", None) or default_reply,
             "time": ts,
-            "user_viewed": bool(getattr(r, "user_viewed", False))
+            "user_viewed": bool(getattr(r, "user_viewed", False)),
+            "is_new": not bool(getattr(r, "user_viewed", False))
         })
 
     return {
@@ -1533,7 +1572,7 @@ def mark_notification_viewed(report_code: str, db: Session = Depends(get_db)):
         db.commit()
 
     unread = db.query(models.FeedbackReport).filter(
-        models.FeedbackReport.status.in_(["approved", "safe", "resolved"]),
+        (models.FeedbackReport.status.in_(["approved", "safe", "phishing", "resolved"])) | (models.FeedbackReport.admin_reply != None),
         models.FeedbackReport.user_viewed == False
     ).count()
 
@@ -1542,7 +1581,7 @@ def mark_notification_viewed(report_code: str, db: Session = Depends(get_db)):
 @app.post("/api/feedback/mark-all-viewed")
 def mark_all_notifications_viewed(db: Session = Depends(get_db)):
     reports = db.query(models.FeedbackReport).filter(
-        models.FeedbackReport.status.in_(["approved", "safe", "resolved"]),
+        (models.FeedbackReport.status.in_(["approved", "safe", "phishing", "resolved"])) | (models.FeedbackReport.admin_reply != None),
         models.FeedbackReport.user_viewed == False
     ).all()
     for r in reports:

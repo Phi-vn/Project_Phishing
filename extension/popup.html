@@ -658,6 +658,22 @@
       </div>
     </div>
 
+    <!-- Banner thông báo mới từ Quản trị viên (Hiển thị khi Admin duyệt/phản hồi) -->
+    <div id="user-notif-banner" style="display: none; margin: 10px 16px 2px 16px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1.5px solid #3b82f6; border-radius: 12px; padding: 10px 12px; box-shadow: 0 2px 8px rgba(37,99,235,0.18);">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 18px; display: inline-block;">🔔</span>
+          <div>
+            <div style="font-size: 11.5px; font-weight: 700; color: #1e3a8a;">Admin Đã Phản Hồi Ý Kiến!</div>
+            <div style="font-size: 10px; color: #2563eb;">Bạn có <b id="banner-unread-count" style="color: #1d4ed8; font-size: 11px;">0</b> phản hồi mới từ Quản trị viên.</div>
+          </div>
+        </div>
+        <button id="btn-open-notif-banner" style="background: #2563eb; color: #ffffff; border: none; border-radius: 7px; padding: 5px 10px; font-size: 10.5px; font-weight: 700; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 4px rgba(37,99,235,0.3);">
+          Xem ngay →
+        </button>
+      </div>
+    </div>
+
     <!-- Score Circle Gauge -->
     <div class="gauge-section">
       <div class="gauge-wrapper" id="score-wrapper">

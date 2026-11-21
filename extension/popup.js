@@ -562,6 +562,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const closeNotifDrawer = document.getElementById('close-notifications-drawer');
   const notifList = document.getElementById('notifications-list');
   const btnMarkAllRead = document.getElementById('btn-mark-all-read');
+  const userNotifBanner = document.getElementById('user-notif-banner');
+  const bannerUnreadCount = document.getElementById('banner-unread-count');
+  const btnOpenNotifBanner = document.getElementById('btn-open-notif-banner');
 
   const apiBase = (typeof PHISHARMOR_API_BASE !== "undefined") ? PHISHARMOR_API_BASE : "http://127.0.0.1:8000";
 
@@ -573,6 +576,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         notifBadgeCount.style.display = 'none';
         notifBadgeCount.innerText = '0';
+      }
+    }
+    if (userNotifBanner && bannerUnreadCount) {
+      if (unreadCount > 0) {
+        userNotifBanner.style.display = 'block';
+        bannerUnreadCount.innerText = String(unreadCount);
+      } else {
+        userNotifBanner.style.display = 'none';
       }
     }
     try {
@@ -599,30 +610,39 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     notifList.innerHTML = items.map(n => {
       const isUnread = !n.user_viewed;
+      const isPhish = (n.status === 'phishing');
+      const cardBg = isUnread ? (isPhish ? '#fff1f2' : '#f0fdf4') : '#ffffff';
+      const cardBorder = isUnread ? (isPhish ? '#fca5a5' : '#86efac') : '#e2e8f0';
+      const titleColor = isPhish ? '#b91c1c' : '#15803d';
+      const titleText = isPhish ? '🚨 Quản trị viên: Xác nhận Lừa Đảo (Phishing)' : '✅ Quản trị viên: Đã duyệt An Toàn & Whitelist';
+      const badgeHtml = isUnread 
+        ? `<span style="background: #ef4444; color: #ffffff; font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: 4px; letter-spacing: 0.5px; animation: pulse 2s infinite;">🔴 MỚI</span>`
+        : `<span style="background: #f1f5f9; color: #64748b; font-size: 8px; font-weight: 700; padding: 2px 5px; border-radius: 4px; margin-left: 4px;">✓ ĐÃ ĐỌC</span>`;
+
       return `
-        <div class="notif-card" data-code="${n.report_code}" style="background: ${isUnread ? '#f0fdf4' : '#ffffff'}; border: 1px solid ${isUnread ? '#86efac' : '#e2e8f0'}; border-radius: 10px; padding: 10px 12px; margin-bottom: 9px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); transition: all 0.2s ease;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
-            <div style="font-weight: 700; font-size: 11px; color: ${isUnread ? '#15803d' : '#334155'}; display: flex; align-items: center; gap: 4px;">
-              <span>✅</span>
-              <span>Đã duyệt an toàn & Đưa vào Whitelist</span>
-              ${isUnread ? '<span style="background: #22c55e; color: #ffffff; font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: 4px; margin-left: 4px;">MỚI</span>' : ''}
+        <div class="notif-card" data-code="${n.report_code}" style="background: ${cardBg}; border: 1.5px solid ${cardBorder}; border-radius: 11px; padding: 11px 13px; margin-bottom: 10px; box-shadow: ${isUnread ? '0 2px 8px rgba(0,0,0,0.06)' : '0 1px 3px rgba(0,0,0,0.02)'}; transition: all 0.2s ease;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+            <div style="font-weight: 800; font-size: 11px; color: ${titleColor}; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+              <span>${titleText}</span>
+              ${badgeHtml}
             </div>
-            <span style="font-size: 9.5px; color: #94a3b8; white-space: nowrap;">${n.time || ''}</span>
+            <span style="font-size: 9.5px; color: #94a3b8; white-space: nowrap; margin-left: 6px;">${n.time || ''}</span>
           </div>
-          <div style="font-size: 11px; color: #0f172a; font-weight: 600; margin-bottom: 4px; word-break: break-all;">
+          <div style="font-size: 11px; color: #0f172a; font-weight: 600; margin-bottom: 5px; word-break: break-all; font-family: monospace; background: rgba(0,0,0,0.03); padding: 3px 6px; border-radius: 4px;">
             🌐 <span>${n.domain || n.url}</span>
           </div>
-          <div style="font-size: 10.5px; color: #334155; line-height: 1.45; background: ${isUnread ? '#ffffff' : '#f8fafc'}; padding: 6px 9px; border-radius: 6px; border-left: 3px solid #22c55e; margin: 5px 0;">
-            <b style="color: #15803d;">Admin phản hồi:</b> ${n.admin_reply || 'Quản trị viên đã kiểm tra và phê duyệt an toàn. Tên miền đã được cập nhật vào Danh bạ Whitelist.'}
+          <div style="font-size: 11px; color: #1e293b; line-height: 1.5; background: #ffffff; padding: 7px 10px; border-radius: 7px; border-left: 3px solid ${isPhish ? '#ef4444' : '#22c55e'}; margin: 6px 0; border: 1px solid #e2e8f0; border-left-width: 3.5px;">
+            <div style="font-size: 10px; font-weight: 800; color: ${isPhish ? '#b91c1c' : '#15803d'}; margin-bottom: 2px;">💬 Lời nhắn từ Quản trị viên:</div>
+            ${n.admin_reply || (isPhish ? 'Website này có dấu hiệu lừa đảo và đánh cắp thông tin thẻ ngân hàng thật sự. Hãy tuyệt đối cẩn thận!' : 'Quản trị viên đã kiểm tra và phê duyệt an toàn. Tên miền đã được cập nhật vào Danh bạ Whitelist.')}
           </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-top: 4px; border-top: 1px dashed #e2e8f0;">
-            <span style="font-size: 9.5px; color: #64748b;">Mã: #${n.report_code}</span>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-top: 5px; border-top: 1px dashed #e2e8f0;">
+            <span style="font-size: 9.5px; color: #64748b; font-family: monospace;">Mã: #${n.report_code}</span>
             ${isUnread ? `
-              <button class="btn-mark-viewed" data-code="${n.report_code}" style="background: #0f172a; color: #ffffff; border: none; border-radius: 6px; padding: 3px 9px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
-                ✓ Đã xem
+              <button class="btn-mark-viewed" data-code="${n.report_code}" style="background: #0f172a; color: #ffffff; border: none; border-radius: 6px; padding: 3px 10px; font-size: 10px; font-weight: 700; cursor: pointer; transition: all 0.2s ease;">
+                ✓ Đánh dấu đã đọc
               </button>
             ` : `
-              <span style="font-size: 10px; color: #94a3b8; font-weight: 600;">✓ Đã đọc</span>
+              <span style="font-size: 10px; color: #94a3b8; font-weight: 600;">✓ Thông báo cũ</span>
             `}
           </div>
         </div>
@@ -668,6 +688,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (btnNotifBell && notifDrawer) {
     btnNotifBell.addEventListener('click', () => {
+      notifDrawer.classList.add('active');
+      fetchNotifications(true);
+    });
+  }
+  if (btnOpenNotifBanner && notifDrawer) {
+    btnOpenNotifBanner.addEventListener('click', () => {
       notifDrawer.classList.add('active');
       fetchNotifications(true);
     });

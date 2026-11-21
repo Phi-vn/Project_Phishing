@@ -22,6 +22,8 @@ interface ReportItem {
   confidenceScore: number;
   shapReasons: { name: string; impact: "risk" | "safe"; weight: number }[];
   pushedToRetrain?: boolean;
+  adminReply?: string;
+  userViewed?: boolean;
 }
 
 export default function FeedbackPage() {
@@ -171,7 +173,13 @@ export default function FeedbackPage() {
   const [activeTab, setActiveTab] = useState<"all" | "pending" | "false_positive" | "false_negative" | "safe" | "phishing" | "approved">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedReport, setSelectedReport] = useState<ReportItem | null>(null);
+  const [adminReplyText, setAdminReplyText] = useState<string>("");
   const [toast, setToast] = useState<{ message: string; type: "success" | "info" | "warning" } | null>(null);
+
+  const openReportModal = (report: ReportItem) => {
+    setSelectedReport(report);
+    setAdminReplyText(report.adminReply || "");
+  };
 
   const showToast = (message: string, type: "success" | "info" | "warning" = "info") => {
     setToast({ message, type });
@@ -206,7 +214,9 @@ export default function FeedbackPage() {
             aiPrediction: item.aiPrediction || item.ai_prediction || "Đang phân tích",
             confidenceScore: item.confidenceScore ?? item.confidence_score ?? 50,
             shapReasons: item.shapReasons || (item.shap_reasons ? (typeof item.shap_reasons === "string" ? JSON.parse(item.shap_reasons) : item.shap_reasons) : []),
-            pushedToRetrain: !!(item.pushedToRetrain ?? item.pushed_to_retrain)
+            pushedToRetrain: !!(item.pushedToRetrain ?? item.pushed_to_retrain),
+            adminReply: item.adminReply || item.admin_reply || "",
+            userViewed: !!(item.userViewed ?? item.user_viewed)
           })));
         }
       }
@@ -241,38 +251,49 @@ export default function FeedbackPage() {
     };
   }, [fetchReports]);
 
-  const handleAction = async (id: string, action: "safe" | "phishing") => {
+  const handleAction = async (id: string, action: "safe" | "phishing", customReply?: string) => {
     const userRole = typeof window !== "undefined" ? localStorage.getItem("user_role") || "Super Admin" : "Super Admin";
     if (userRole === "Guest Auditor") {
       showToast("🛡️ Chế độ Chỉ Đọc (Guest Auditor): Tài khoản Khách không được sửa hoặc duyệt báo cáo!", "warning");
       return;
     }
+
+    let replyToSend = customReply !== undefined ? customReply : adminReplyText.trim();
+    if (!replyToSend) {
+      if (action === "safe") {
+        replyToSend = "Quản trị viên đã kiểm duyệt và xác nhận trang này An toàn. Đã đưa vào Danh bạ Whitelist.";
+      } else {
+        replyToSend = "Quản trị viên đã xác nhận đây là website Lừa đảo (Phishing). Vui lòng tuyệt đối không truy cập!";
+      }
+    }
+
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
       let res = await fetch(`${apiUrl}/api/feedback/${id}/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action })
+        body: JSON.stringify({ action, admin_reply: replyToSend })
       }).catch(() => null);
       if (!res || !res.ok) {
         res = await fetch(`https://phisharmor-ai-backend.onrender.com/api/feedback/${id}/action`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action })
+          body: JSON.stringify({ action, admin_reply: replyToSend })
         }).catch(() => null);
       }
       if (res && res.ok) {
-        setReports(prev => prev.map(r => r.id === id ? { ...r, status: action, pushedToRetrain: false } : r));
+        setReports(prev => prev.map(r => r.id === id ? { ...r, status: action, pushedToRetrain: false, adminReply: replyToSend, userViewed: false } : r));
       } else {
-        setReports(reports.map(r => r.id === id ? { ...r, status: action, pushedToRetrain: false } : r));
+        setReports(reports.map(r => r.id === id ? { ...r, status: action, pushedToRetrain: false, adminReply: replyToSend, userViewed: false } : r));
       }
     } catch {
-      setReports(reports.map(r => r.id === id ? { ...r, status: action, pushedToRetrain: false } : r));
+      setReports(reports.map(r => r.id === id ? { ...r, status: action, pushedToRetrain: false, adminReply: replyToSend, userViewed: false } : r));
     }
-    const labelText = action === "safe" ? "AN TOÀN (Safe Ground-Truth)" : "LỪA ĐẢO (Phishing Confirmed)";
-    showToast(`Đã duyệt [${id}] là ${labelText}. Đã lưu vào CSDL & hàng chờ nạp dữ liệu!`, "success");
+    const labelText = action === "safe" ? "AN TOÀN" : "LỪA ĐẢO";
+    showToast(`Đã duyệt [${id}] là ${labelText} & gửi tin nhắn phản hồi đến người dùng!`, "success");
     if (selectedReport && selectedReport.id === id) {
-      setSelectedReport(prev => prev ? { ...prev, status: action, pushedToRetrain: false } : null);
+      setSelectedReport(prev => prev ? { ...prev, status: action, pushedToRetrain: false, adminReply: replyToSend, userViewed: false } : null);
+      setAdminReplyText(replyToSend);
     }
   };
 
@@ -1250,7 +1271,7 @@ export default function FeedbackPage() {
                       <tr
                         key={report.id}
                         className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors group cursor-pointer"
-                        onClick={() => setSelectedReport(report)}
+                        onClick={() => openReportModal(report)}
                       >
                         {/* ID & Time */}
                         <td className="px-4 py-3.5 text-center whitespace-nowrap">
@@ -1398,7 +1419,7 @@ export default function FeedbackPage() {
                                 </button>
                               )}
                               <button
-                                onClick={() => setSelectedReport(report)}
+                                onClick={() => openReportModal(report)}
                                 className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                                 title="Xem chi tiết điều tra"
                               >
@@ -1531,6 +1552,56 @@ export default function FeedbackPage() {
                 </div>
               </div>
 
+              {/* Admin Message & Reply to User Section */}
+              <div className="p-4 bg-sky-50/70 dark:bg-sky-950/20 rounded-xl border border-sky-200/80 dark:border-sky-900/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-sky-800 dark:text-sky-300">
+                    <svg className="w-4 h-4 text-sky-600 dark:text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <span>💬 Lời Nhắn Của Admin Gửi Cho Người Dùng</span>
+                  </div>
+                  {selectedReport.adminReply && (
+                    <span className="text-[10.5px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
+                      <span>✓</span> Đã có tin nhắn
+                    </span>
+                  )}
+                </div>
+
+                <textarea
+                  value={adminReplyText}
+                  onChange={(e) => setAdminReplyText(e.target.value)}
+                  placeholder="Nhập lời nhắn phản hồi của Quản trị viên để gửi trực tiếp về tiện ích Extension cho người dùng..."
+                  className="w-full text-xs p-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent min-h-[75px] transition-all"
+                />
+
+                {/* Quick reply templates */}
+                <div className="flex flex-wrap gap-1.5 items-center pt-1">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mr-1">Mẫu nhanh:</span>
+                  <button
+                    type="button"
+                    onClick={() => setAdminReplyText("Hệ thống đã xác nhận URL này an toàn và đã cập nhật Whitelist. Bạn có thể truy cập lại bình thường.")}
+                    className="text-[10.5px] px-2.5 py-1 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-sky-400 hover:text-sky-600 dark:hover:text-sky-400 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                  >
+                    ✅ Báo nhầm (Đã Whitelist)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdminReplyText("Báo cáo bị từ chối: URL này có dấu hiệu lừa đảo và đánh cắp thông tin tài khoản thật sự. Vui lòng tuyệt đối không truy cập!")}
+                    className="text-[10.5px] px-2.5 py-1 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-rose-400 hover:text-rose-600 dark:hover:text-rose-400 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                  >
+                    ⚠️ Cảnh báo Lừa đảo thật
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdminReplyText("Đội ngũ bảo mật SOC đã ghi nhận phản hồi và chuyển mẫu vào tập dữ liệu huấn luyện AI Active Learning.")}
+                    className="text-[10.5px] px-2.5 py-1 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                  >
+                    🤖 Nạp vào Retrain AI
+                  </button>
+                </div>
+              </div>
+
               {/* Action Buttons in Modal */}
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3">
                 <div className="text-xs text-slate-500">
@@ -1540,13 +1611,13 @@ export default function FeedbackPage() {
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => handleAction(selectedReport.id, "safe")}
-                    className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                    className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                       selectedReport.status === "safe"
                         ? "bg-sky-600 text-white shadow-xs"
-                        : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                        : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100"
                     }`}
                   >
-                    ✓ Gán AN TOÀN
+                    ✓ Gán AN TOÀN & Gửi Tin
                   </button>
 
                   <button
@@ -1554,9 +1625,11 @@ export default function FeedbackPage() {
                     className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                       selectedReport.status === "phishing"
                         ? "bg-rose-600 text-white shadow-xs"
-                        : "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800"
+                        : "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800 hover:bg-rose-100"
                     }`}
                   >
+                    Gán Lừa Đảo & Cảnh Báo
+                  </button>
                     Gán Lừa Đảo
                   </button>
 

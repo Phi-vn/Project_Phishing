@@ -353,9 +353,14 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
     chrome.action.setBadgeText({ text: "WARN", tabId: details.tabId });
     chrome.action.setBadgeBackgroundColor({ color: "#f59e0b", tabId: details.tabId });
   } else {
-    // Vùng Xanh (An toàn): Gắn badge màu xanh
-    chrome.action.setBadgeText({ text: "SAFE", tabId: details.tabId });
-    chrome.action.setBadgeBackgroundColor({ color: "#10b981", tabId: details.tabId });
+    // Vùng Xanh (An toàn): Nếu có thông báo từ Admin thì ưu tiên hiển thị số thông báo chưa đọc!
+    if (globalUnreadNotifications > 0) {
+      chrome.action.setBadgeText({ text: String(globalUnreadNotifications), tabId: details.tabId });
+      chrome.action.setBadgeBackgroundColor({ color: "#2563eb", tabId: details.tabId });
+    } else {
+      chrome.action.setBadgeText({ text: "SAFE", tabId: details.tabId });
+      chrome.action.setBadgeBackgroundColor({ color: "#10b981", tabId: details.tabId });
+    }
   }
 });
 
@@ -380,6 +385,7 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 
 // Biến theo dõi số lượng thông báo chưa đọc từ Admin
 let globalUnreadNotifications = 0;
+let lastNotifiedUnread = 0;
 
 async function checkAdminNotifications() {
   const notifEndpoints = [
@@ -395,10 +401,25 @@ async function checkAdminNotifications() {
       const data = await res.json();
       if (data && data.status === "success") {
         const unread = data.unread_count !== undefined ? data.unread_count : 0;
+        
+        // Khi Admin vừa duyệt/phản hồi (số unread tăng lên) -> Bắn notification màn hình máy tính ngay lập tức
+        if (unread > lastNotifiedUnread) {
+          try {
+            chrome.notifications.create({
+              type: "basic",
+              iconUrl: "icons/icon128.png",
+              title: "🔔 PhishArmor AI — Phản Hồi Mới Từ Ban Quản Trị",
+              message: `Ban Quản trị đã duyệt ${unread} phản hồi/đóng góp của bạn. Bấm vào icon tiện ích để xem chi tiết!`,
+              priority: 2
+            });
+          } catch (e) {}
+        }
+
+        lastNotifiedUnread = unread;
         globalUnreadNotifications = unread;
         if (unread > 0) {
           chrome.action.setBadgeText({ text: String(unread) });
-          chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
+          chrome.action.setBadgeBackgroundColor({ color: "#ef4444" });
         } else {
           chrome.action.setBadgeText({ text: "" });
         }
@@ -410,16 +431,16 @@ async function checkAdminNotifications() {
   }
 }
 
-// Khởi chạy kiểm tra định kỳ mỗi 30s
+// Khởi chạy kiểm tra định kỳ mỗi 8s để người dùng nhận được phản hồi tức thì
 checkAdminNotifications();
-setInterval(checkAdminNotifications, 30000);
+setInterval(checkAdminNotifications, 8000);
 
 // 2. Lắng nghe thay đổi tab để cập nhật trạng thái
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   try {
     if (globalUnreadNotifications > 0) {
       chrome.action.setBadgeText({ text: String(globalUnreadNotifications), tabId: activeInfo.tabId });
-      chrome.action.setBadgeBackgroundColor({ color: "#2563eb", tabId: activeInfo.tabId });
+      chrome.action.setBadgeBackgroundColor({ color: "#ef4444", tabId: activeInfo.tabId });
       return;
     }
 
@@ -459,7 +480,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     globalUnreadNotifications = unread;
     if (unread > 0) {
       chrome.action.setBadgeText({ text: String(unread) });
-      chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
+      chrome.action.setBadgeBackgroundColor({ color: "#ef4444" });
     } else {
       chrome.action.setBadgeText({ text: "" });
     }
