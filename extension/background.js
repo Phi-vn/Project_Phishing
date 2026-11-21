@@ -264,24 +264,35 @@ async function inspectUrl(targetUrl) {
       }
     }
 
-    // 3. Gửi lên máy chủ Cloud AI với thời gian chờ giới hạn 2.5 giây
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    // 3. Gửi lên máy chủ Cloud AI (Hỗ trợ tự động chuyển đổi giữa Cloud 24/7 và Local)
+    const backendEndpoints = [
+      (typeof PHISHARMOR_API_BASE !== "undefined") ? `${PHISHARMOR_API_BASE}/predict` : null,
+      "https://phisharmor-ai-backend.onrender.com/predict",
+      "http://127.0.0.1:8000/predict"
+    ].filter((v, i, a) => v && a.indexOf(v) === i);
 
-    const response = await fetch(BACKEND_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: targetUrl }),
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
+    for (const ep of backendEndpoints) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-    if (!response.ok) throw new Error("HTTP " + response.status);
-    const data = await response.json();
+        const response = await fetch(ep, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: targetUrl }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
 
-    // Lưu cache
-    urlCache.set(targetUrl, { time: Date.now(), result: data });
-    return data;
+        if (response.ok) {
+          const data = await response.json();
+          urlCache.set(targetUrl, { time: Date.now(), result: data });
+          return data;
+        }
+      } catch (e) {}
+    }
+
+    throw new Error("Không thể kết nối đến máy chủ");
   } catch (err) {
     // Khi mạng yếu / rớt mạng / máy chủ ngủ: Dùng cơ chế Heuristic cục bộ dự phòng
     const fallback = clientFastInspect(targetUrl) || {
@@ -371,22 +382,31 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 let globalUnreadNotifications = 0;
 
 async function checkAdminNotifications() {
-  try {
-    const res = await fetch(`${PHISHARMOR_API_BASE}/api/feedback/notifications`);
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data && data.status === "success") {
-      const unread = data.unread_count !== undefined ? data.unread_count : 0;
-      globalUnreadNotifications = unread;
-      if (unread > 0) {
-        chrome.action.setBadgeText({ text: String(unread) });
-        chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
-      } else {
-        chrome.action.setBadgeText({ text: "" });
+  const notifEndpoints = [
+    (typeof PHISHARMOR_API_BASE !== "undefined") ? `${PHISHARMOR_API_BASE}/api/feedback/notifications` : null,
+    "https://phisharmor-ai-backend.onrender.com/api/feedback/notifications",
+    "http://127.0.0.1:8000/api/feedback/notifications"
+  ].filter((v, i, a) => v && a.indexOf(v) === i);
+
+  for (const ep of notifEndpoints) {
+    try {
+      const res = await fetch(ep);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data && data.status === "success") {
+        const unread = data.unread_count !== undefined ? data.unread_count : 0;
+        globalUnreadNotifications = unread;
+        if (unread > 0) {
+          chrome.action.setBadgeText({ text: String(unread) });
+          chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
+        } else {
+          chrome.action.setBadgeText({ text: "" });
+        }
+        return;
       }
+    } catch (e) {
+      // Thử endpoint tiếp theo
     }
-  } catch (e) {
-    // Không log lỗi nếu backend ngủ hoặc offline
   }
 }
 

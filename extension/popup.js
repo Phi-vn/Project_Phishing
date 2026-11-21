@@ -48,6 +48,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn("Could not query active tab:", e);
   }
 
+  // Danh sách máy chủ kết nối thông minh (Tự động chuyển đổi giữa Cloud 24/7 và Local)
+  const getApiEndpoints = () => {
+    const list = [
+      (typeof PHISHARMOR_API_BASE !== "undefined") ? PHISHARMOR_API_BASE : null,
+      "https://phisharmor-ai-backend.onrender.com",
+      "http://127.0.0.1:8000"
+    ];
+    return [...new Set(list.filter(Boolean))];
+  };
+
+  const smartFetch = async (path, options = {}, timeoutMs = 10000) => {
+    const endpoints = getApiEndpoints();
+    let lastErr = null;
+    for (const base of endpoints) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        const res = await fetch(`${base}${path}`, {
+          ...options,
+          signal: controller.signal
+        });
+        clearTimeout(timer);
+        if (res.ok) return res;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr || new Error("Không thể kết nối đến máy chủ");
+  };
+
   // Phân loại địa chỉ nội bộ: Trang hệ thống trình duyệt hoặc Môi trường Localhost/LAN
   const getSpecialUrlType = (url) => {
     if (!url) return { type: "system", name: "Trang hệ thống" };
@@ -224,21 +254,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     try {
-      const apiBase = (typeof PHISHARMOR_API_BASE !== "undefined") ? PHISHARMOR_API_BASE : "http://127.0.0.1:8000";
-      
-      // Giới hạn thời gian chờ 2.5 giây (chống mạng yếu làm đơ giao diện)
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2500);
-
-      const response = await fetch(`${apiBase}/predict`, {
+      const response = await smartFetch('/predict', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: currentTabUrl }),
-        signal: controller.signal
-      });
-      clearTimeout(timer);
+        body: JSON.stringify({ url: currentTabUrl })
+      }, 6000);
       
-      if (!response.ok) throw new Error("Backend offline hoặc lỗi HTTP");
       const data = await response.json();
       lastPredictionData = data;
 
@@ -498,11 +519,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       btnFbSubmit.disabled = true;
-      btnFbSubmit.innerText = 'Đang gửi về Admin...';
-      const apiBase = (typeof PHISHARMOR_API_BASE !== "undefined") ? PHISHARMOR_API_BASE : "http://127.0.0.1:8000";
+      btnFbSubmit.innerText = 'Đang gửi về Admin (đang kết nối)...';
 
       try {
-        const res = await fetch(`${apiBase}/api/feedback`, {
+        const res = await smartFetch('/api/feedback', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -513,8 +533,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             confidence_score: lastPredictionData?.trust_score !== undefined ? lastPredictionData.trust_score : (lastPredictionData?.confidence ?? 85),
             ai_prediction: lastPredictionData?.label || (typeVal === "user_review" ? "Người dùng đánh giá" : "Cảnh báo Phishing")
           })
-        });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        }, 25000); // Cho phép tối đa 25 giây khi máy chủ Render đang khởi động
+
         const result = await res.json();
         if (fbStatus) {
           fbStatus.style.display = 'block';
@@ -526,7 +546,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (fbStatus) {
           fbStatus.style.display = 'block';
           fbStatus.style.color = '#e11d48';
-          fbStatus.innerText = 'Không kết nối được máy chủ Admin. Hãy báo Admin bật cổng dùng thử.';
+          fbStatus.innerText = 'Máy chủ đang đánh thức từ chế độ ngủ (Cold-start). Vui lòng bấm "Gửi Ngay Cho Admin" lại một lần nữa!';
         }
       } finally {
         btnFbSubmit.disabled = false;
@@ -616,12 +636,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         btn.disabled = true;
         btn.innerText = 'Đang lưu...';
         try {
-          const res = await fetch(`${apiBase}/api/feedback/${code}/mark-viewed`, { method: 'POST' });
-          if (res.ok) {
-            const data = await res.json();
-            updateNotifBadge(data.unread_count !== undefined ? data.unread_count : 0);
-            fetchNotifications(false);
-          }
+          const res = await smartFetch(`/api/feedback/${code}/mark-viewed`, { method: 'POST' }, 8000);
+          const data = await res.json();
+          updateNotifBadge(data.unread_count !== undefined ? data.unread_count : 0);
+          fetchNotifications(false);
         } catch (err) {
           console.warn('Could not mark viewed:', err);
           btn.disabled = false;
@@ -633,8 +651,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const fetchNotifications = async (openDrawer = false) => {
     try {
-      const res = await fetch(`${apiBase}/api/feedback/notifications`);
-      if (!res.ok) return;
+      const res = await smartFetch('/api/feedback/notifications', {}, 8000);
       const data = await res.json();
       if (data && data.status === 'success') {
         const unread = data.unread_count !== undefined ? data.unread_count : 0;
@@ -666,11 +683,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnMarkAllRead.disabled = true;
       btnMarkAllRead.innerText = 'Đang lưu...';
       try {
-        const res = await fetch(`${apiBase}/api/feedback/mark-all-viewed`, { method: 'POST' });
-        if (res.ok) {
-          updateNotifBadge(0);
-          fetchNotifications(false);
-        }
+        const res = await smartFetch('/api/feedback/mark-all-viewed', { method: 'POST' }, 8000);
+        updateNotifBadge(0);
+        fetchNotifications(false);
       } catch (e) {
         console.warn('Could not mark all viewed:', e);
       } finally {
